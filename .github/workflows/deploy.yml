@@ -58,7 +58,12 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/artifex
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # 不做 docker login：ghcr 上的镜像是公开的，匿名即可拉取。
+            #
+            # 这台服务器上跑着多个项目，而 docker login 的凭据是**机器级**的
+            # （/root/.docker/config.json 每个 registry 只有一个槽位）。
+            # 各项目各自 login 会互相覆盖，谁后发版谁把别人的凭据顶掉。
+            # 镜像公开后不需要凭据，这类冲突从根上消失。
             docker compose -f docker-compose.web.yaml pull
             docker compose -f docker-compose.web.yaml up -d
             docker image prune -f
