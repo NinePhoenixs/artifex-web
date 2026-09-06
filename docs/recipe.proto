@@ -1,0 +1,411 @@
+// recipe 模块对外接口契约（proto-first + tRPC-Go restful 转码）。
+// message = 对外 DTO，不复用 domain 对象。
+//
+// 三条贯穿本契约的约定：
+//
+// 1. **模板列表挂在应用下** —— 由服务端按该应用的 app_type 过滤，而不是让前端
+//    传类型。前端传什么都不该影响约束，那这个参数就没有意义。
+//
+// 2. **DTO 分组不随内部表结构改变** —— 内部策略拆成 8 张策略表 + 1 张挂载关系表，
+//    对外仍是 material_spec / generation_spec / review_policy 三段。表结构是实现
+//    细节，页面不该因为我们怎么存而改一行代码（ADR-0002）。
+//
+// 3. **generation_spec 的字段按 app_type 裁剪** —— 类型专有字段用 optional，
+//    不适用的类型在 JSON 里根本不出现。页面照着响应渲染即可。
+syntax = "proto3";
+
+package artifex.recipe.v1;
+
+option go_package = "artifex-core/api/recipe/v1;recipev1";
+
+import "trpc/api/annotations.proto";
+import "google/protobuf/empty.proto"; // 删除接口返回 204，无响应体
+
+// ============ 枚举（对外 JSON 输出枚举名字符串，不暴露 DB 数值） ============
+
+// 应用类型 = 该应用产出的内容形态。创建时必选，之后不可更改。
+//
+// 判断该不该新增一个类型：**它的创作要求字段集与现有类型是否不同**。
+// 小红书图文与公众号图文字段集相同（字数/结构/视觉风格），差别只在取值，
+// 因此同属图文类、用不同配方表达；图文与视频字段集完全不同，才是两个类型。
+enum AppType {
+  APP_TYPE_UNSPECIFIED = 0;
+  APP_TYPE_ARTICLE     = 1; // 图文类（MVP 唯一开放）
+  APP_TYPE_VIDEO       = 2; // 视频类，敬请期待
+  APP_TYPE_AUDIO       = 3; // 音频类，敬请期待
+  APP_TYPE_SLIDES      = 4; // 演示类，敬请期待
+}
+
+// 配方状态只回答一件事：**这份配方配全了没有**。
+// "用不用"由所属应用的 selected_recipe_id 表达，配方本身没有启用/停用开关。
+enum RecipeStatus {
+  RECIPE_STATUS_UNSPECIFIED = 0;
+  RECIPE_STATUS_DRAFT       = 1; // 草稿：必要配置未完成，不能用于生产
+  RECIPE_STATUS_READY       = 2; // 就绪：配置完整，可被应用选中并生产
+}
+
+// 策略种类。与 recipe_policy_relation.policy_kind 一一对应。
+// 本枚举**不出现在任何请求/响应里**，写在契约中是为了让"配方由哪些策略组成"
+// 这件事有一处公开定义；6、7 只占位，对应模块就绪后启用。
+enum PolicyKind {
+  POLICY_KIND_UNSPECIFIED = 0;
+  POLICY_KIND_TRIGGER     = 1; // 触发
+  POLICY_KIND_MATERIAL    = 2; // 资料
+  POLICY_KIND_CREATION    = 3; // 创作要求（唯一按 app_type 特化）
+  POLICY_KIND_GENERATION  = 4; // 生成
+  POLICY_KIND_REVIEW      = 5; // 评审
+  POLICY_KIND_DELIVERY    = 6; // 交付（预留）
+  POLICY_KIND_RUNTIME     = 7; // 限额（预留）
+}
+
+enum SourceMode {
+  SOURCE_MODE_UNSPECIFIED = 0;
+  SOURCE_MODE_AUTOMATIC   = 1; // 系统自动准备（用户本次提供的资料一并使用）
+  SOURCE_MODE_USER_FIRST  = 2; // 用户资料优先，不足时再搜索
+  SOURCE_MODE_USER_ONLY   = 3; // 仅使用用户资料，不联网搜索
+}
+
+enum Freshness {
+  FRESHNESS_UNSPECIFIED  = 0;
+  FRESHNESS_UNLIMITED    = 1; // 不限
+  FRESHNESS_LAST_7_DAYS  = 2;
+  FRESHNESS_LAST_30_DAYS = 3;
+  FRESHNESS_LAST_90_DAYS = 4;
+  FRESHNESS_LAST_YEAR    = 5;
+  FRESHNESS_CUSTOM       = 6; // 自定义天数，见 custom_freshness
+}
+
+enum ContentStructure {
+  CONTENT_STRUCTURE_UNSPECIFIED                  = 0;
+  CONTENT_STRUCTURE_INTRODUCTION_BODY_CONCLUSION = 1; // 总分总
+  CONTENT_STRUCTURE_INTRODUCTION_BODY            = 2; // 总分
+  CONTENT_STRUCTURE_PROBLEM_ANALYSIS_SOLUTION    = 3; // 问题—分析—方案
+  CONTENT_STRUCTURE_LIST                         = 4; // 清单式
+  CONTENT_STRUCTURE_STEPS                        = 5; // 步骤式
+  CONTENT_STRUCTURE_COMPARISON                   = 6; // 对比式
+  CONTENT_STRUCTURE_CUSTOM                       = 7; // 自定义，见 custom_sections
+}
+
+enum Tone {
+  TONE_UNSPECIFIED  = 0;
+  TONE_CLEAR        = 1; // 清晰易懂
+  TONE_PROFESSIONAL = 2; // 专业严谨
+  TONE_CONCISE      = 3; // 简洁直接
+  TONE_FRIENDLY     = 4; // 亲切自然
+  TONE_LIVELY       = 5; // 生动有趣
+  TONE_NEUTRAL      = 6; // 客观中立
+  TONE_CUSTOM       = 7; // 自定义，见 custom_tone
+}
+
+enum VisualStyle {
+  VISUAL_STYLE_UNSPECIFIED  = 0;
+  VISUAL_STYLE_SIMPLE       = 1; // 简洁清晰
+  VISUAL_STYLE_BUSINESS     = 2; // 商务专业
+  VISUAL_STYLE_FRESH        = 3; // 清新活泼
+  VISUAL_STYLE_EDITORIAL    = 4; // 杂志编辑
+  VISUAL_STYLE_INFOGRAPHIC  = 5; // 数据图解
+  VISUAL_STYLE_PHOTOGRAPHIC = 6; // 写实摄影
+  VISUAL_STYLE_ILLUSTRATION = 7; // 插画风格
+  VISUAL_STYLE_CUSTOM       = 8; // 自定义，见 custom_visual_style
+}
+
+// ============ 应用 ============
+
+message App {
+  string  app_id             = 1; // OUTPUT_ONLY，系统生成
+  AppType app_type           = 2; // 创建时必选，**之后只读**（换类型请新建应用）
+  string  app_type_name      = 3; // OUTPUT_ONLY，中文名，页面直接展示
+  string  name               = 4; // 必填，去空格后 1~128 字
+  string  description        = 5; // 选填，<=255 字
+  string  selected_recipe_id = 6; // OUTPUT_ONLY，当前用于生产的配方；换配方走 SelectRecipe
+  string  icon_url           = 7; // OUTPUT_ONLY，为空时页面按名称生成文字图标
+  string  created_at         = 8; // OUTPUT_ONLY，ISO 8601
+  string  updated_at         = 9; // OUTPUT_ONLY，ISO 8601
+}
+
+message AppListItem {
+  App       app          = 1;
+  int32     recipe_count = 2; // 该应用下的配方数量
+  LatestJob latest_job   = 3; // 最近一次生产任务；本期恒为空，见 spec.md
+}
+
+message LatestJob {
+  string job_id     = 1;
+  string topic      = 2;
+  string status     = 3;
+  string updated_at = 4;
+}
+
+// ============ 模板（系统配方） ============
+
+// 平台预制模板，只读，不属于任何应用，不能直接生产——只能复制。
+// 模型 / 工具 / 阈值 / 权重等内部配置不返回页面。
+message SystemRecipe {
+  string          system_recipe_id = 1;
+  AppType         app_type         = 2; // 只有同类型的应用能用
+  string          app_type_name    = 3; // 中文名，页面直接展示
+  string          name             = 4;
+  string          description      = 5;
+  repeated string features         = 6; // 卡片上的能力说明
+  // available=false 表示该应用类型尚未开放（路线图占位）：
+  // 页面显示"敬请期待"且不可点；**服务端同样会拒绝用它创建配方**，不只靠前端。
+  bool available = 7;
+}
+
+// ============ 应用配方 ============
+//
+// 内部拆成 8 张策略表 + 1 张挂载关系表，对外按产品契约的三段组织。
+// material_spec / generation_spec / review_policy 是**页面契约**，不是表结构。
+
+message MaterialSpec {
+  SourceMode      source_mode       = 1;
+  repeated string allowed_sources   = 2; // 空=不限
+  repeated string excluded_sources  = 3;
+  Freshness       freshness         = 4;
+  int32           custom_freshness  = 5; // 天数；freshness=CUSTOM 时 >=1，否则须为 0
+  int32           max_search_rounds = 6; // ∈{1,2,3}；source_mode=USER_ONLY 时不生效
+}
+
+// 内容生成要求（= 成品质量评审的业务判断依据）。
+// 内部对应 recipe_creation_brief（共性）+ 类型特化表 + recipe_creation_item；
+// 生成技术选型（模型/工具/模板）不在此，也不返回页面。
+//
+// **字段按 app_type 裁剪**：类型专有字段用 optional，不适用的类型在 JSON 里
+// 根本不出现——图文配方的响应没有 duration_sec，音频配方的响应没有
+// target_word_count。页面照着响应渲染表单即可，不必自己维护一张"哪个类型有
+// 哪些字段"的对照表（那种对照表与后端一旦不同步，就是线上表单缺字段）。
+//
+// 保存时同样按类型解析：给图文配方夹带 shot_count，服务端直接忽略，不会误写。
+message GenerationSpec {
+  // ---- 共性：所有应用类型都有 ----
+  string          target_audience       = 1;  // 必填
+  string          creation_goal         = 2;  // 必填
+  Tone            tone                  = 6;
+  string          custom_tone           = 7;  // tone=CUSTOM 时非空
+  string          title_preference      = 10; // 选填
+  string          narrative_perspective = 11; // 选填
+  repeated string must_include          = 12; // 选填
+  repeated string forbidden_content     = 13; // 选填
+
+  // ---- 图文类（app_type=ARTICLE）专有 ----
+  optional int32            target_word_count   = 3; // 必填 >0；评审按 ±10% 判定
+  optional ContentStructure content_structure   = 4;
+  repeated string           custom_sections     = 5; // CUSTOM 时非空，**顺序即正文段落顺序**
+  optional VisualStyle      visual_style        = 8;
+  optional string           custom_visual_style = 9; // visual_style=CUSTOM 时非空
+
+  // ---- 视频类（VIDEO）专有 ----
+  optional int32  shot_count      = 14; // 必填 >0，<=100
+  optional int32  narration_speed = 15; // 口播语速（字/分钟），0=不指定
+  optional string bgm_style       = 16; // 选填
+  optional string subtitle_style  = 17; // 选填
+
+  // ---- 音频类（AUDIO）专有 ----
+  optional int32  host_count    = 18; // 必填 >0，1=单口、>=2=对谈
+  optional string opening_style = 19; // 选填
+
+  // duration_sec 视频与音频共用 —— 一份配方只可能是其中一类，不会歧义。
+  // 视频 <=600 秒，音频 <=7200 秒。**执行参数**：直接决定生成成本与配额。
+  optional int32 duration_sec = 20;
+
+  // ---- 演示类（SLIDES）专有 ----
+  optional int32  slide_count      = 21; // 必填 >0，<=200
+  optional int32  points_per_slide = 22; // 必填 >0，<=20
+  optional string theme            = 23; // 选填，母版/配色
+
+  // 注：14~23 段字段为**草案**——产品尚未定义视频/音频/演示的创作要求，
+  // 也尚未建表。先立结构让"新增一类产出形态"可评审。MVP 只有图文投产，见 ADR-0004。
+}
+
+// MVP 只开放自动修改次数；硬性规则/评分项/权重/通过线由系统管理。
+message ReviewPolicy {
+  int32 auto_revision_count = 1; // ∈{0,1,2}
+}
+
+message Recipe {
+  string       recipe_id        = 1; // OUTPUT_ONLY
+  string       app_id           = 2; // OUTPUT_ONLY
+  AppType      app_type         = 3; // OUTPUT_ONLY，继承自所属应用，创建后不可变
+  string       app_type_name    = 4; // OUTPUT_ONLY
+  string       system_recipe_id = 5; // OUTPUT_ONLY，来源模板
+  RecipeStatus status           = 6; // OUTPUT_ONLY，转就绪走 MarkRecipeReady
+  string       name             = 7; // 必填，1~128 字
+  string       description      = 8; // 选填，<=255 字
+  MaterialSpec   material_spec   = 9;
+  GenerationSpec generation_spec = 10;
+  ReviewPolicy   review_policy   = 11;
+  string       created_at       = 12; // OUTPUT_ONLY
+  string       updated_at       = 13; // OUTPUT_ONLY
+}
+
+// 列表项不含策略：列表只用主表字段，逐条加载策略就是 N+1。
+// 需要完整配方时走 GetRecipe。
+message RecipeListItem {
+  string       recipe_id  = 1;
+  string       name       = 2;
+  string       description = 3;
+  RecipeStatus status     = 4;
+  string       updated_at = 5;
+}
+
+// ============ 错误（HTTP body，状态码即契约，禁 200 包错误体） ============
+
+message FieldError {
+  string field   = 1; // DTO 字段路径，如 generationSpec.targetAudience
+  string message = 2; // 可直接展示给用户的中文说明
+}
+
+message Error {
+  string code    = 1;
+  string message = 2;
+  string field   = 3;             // 单字段错误时返回
+  repeated FieldError errors = 4; // 多字段错误时返回
+}
+
+// ============ 请求 / 响应 ============
+
+message ListAppsRequest  {}
+message ListAppsResponse { repeated AppListItem items = 1; int32 total = 2; }
+
+// app_type 必填：应用必须声明产出什么形态，之后不可更改。
+// 尚未开放的类型（视频/音频/演示）返回 400 APP_TYPE_UNAVAILABLE。
+message CreateAppRequest { AppType app_type = 1; string name = 2; string description = 3; }
+message GetAppRequest    { string app_id = 1; }
+// 只提交发生变化的字段，至少含 name 或 description 之一。**app_type 不可更新。**
+message UpdateAppRequest { string app_id = 1; optional string name = 2; optional string description = 3; }
+
+// 模板列表挂在应用下：由服务端按该应用的 app_type 过滤。
+// 不用 ?appType= 让前端传，是因为类型该由服务端从应用推导——前端传什么都不影响约束。
+message ListSystemRecipesRequest  { string app_id = 1; }
+message ListSystemRecipesResponse { repeated SystemRecipe items = 1; int32 total = 2; }
+
+message ListRecipesRequest  { string app_id = 1; }
+message ListRecipesResponse { repeated RecipeListItem items = 1; int32 total = 2; }
+
+// 从模板创建：只需指定来源，其余深拷贝模板的全部策略。
+// 服务端校验：来源确实是模板 · 可用 · **app_type 与本应用一致**。
+// 与同应用下已有配方重名时自动追加"（副本）"。
+message CreateRecipeRequest { string app_id = 1; string system_recipe_id = 2; }
+message GetRecipeRequest    { string app_id = 1; string recipe_id = 2; }
+
+// 全量保存：页面提交全部可编辑字段。状态、类型、系统管理字段不在其中，提交了也不生效。
+// 草稿只过格式校验；已就绪的必须整体通过完整性校验，否则原配置继续生效。
+message UpdateRecipeRequest {
+  string         app_id          = 1;
+  string         recipe_id       = 2;
+  string         name            = 3;
+  string         description     = 4;
+  MaterialSpec   material_spec   = 5;
+  GenerationSpec generation_spec = 6;
+  ReviewPolicy   review_policy   = 7;
+}
+
+// 草稿 → 就绪。完整性校验不过返回 422，并一次给出全部缺失字段。
+message MarkRecipeReadyRequest { string app_id = 1; string recipe_id = 2; }
+
+// 把这份配方设为应用当前使用的配方。仅就绪配方可选中。
+// 返回被选中的配方本身，页面据此刷新那一行。
+message SelectRecipeRequest { string app_id = 1; string recipe_id = 2; }
+
+// 配置解析（平台内部，给 production 建 Job 用；不对企业用户页面开放）
+message ResolveRecipeRequest  { string app_id = 1; string recipe_id = 2; }
+message ResolveRecipeResponse {
+  string  app_id    = 1;
+  AppType app_type  = 2;
+  string  recipe_id = 3;
+  string  status    = 4;
+}
+
+message DeleteAppRequest    { string app_id = 1; }
+message DeleteRecipeRequest { string app_id = 1; string recipe_id = 2; }
+
+// ============ Service ============
+
+service RecipeService {
+  // ---- 应用 ----
+  rpc ListApps(ListAppsRequest) returns (ListAppsResponse) {
+    option (trpc.api.http) = { get: "/v1/apps" };
+  }
+  // 201。建应用时自动按 app_type 备好全部模板副本，并选中第一份。
+  rpc CreateApp(CreateAppRequest) returns (App) {
+    option (trpc.api.http) = { post: "/v1/apps" body: "*" };
+  }
+  rpc GetApp(GetAppRequest) returns (App) {
+    option (trpc.api.http) = { get: "/v1/apps/{app_id}" };
+  }
+  rpc UpdateApp(UpdateAppRequest) returns (App) {
+    option (trpc.api.http) = { patch: "/v1/apps/{app_id}" body: "*" };
+  }
+
+  // ---- 模板（按应用类型过滤）----
+  rpc ListSystemRecipes(ListSystemRecipesRequest) returns (ListSystemRecipesResponse) {
+    option (trpc.api.http) = { get: "/v1/apps/{app_id}/system-recipes" };
+  }
+
+  // ---- 应用配方 ----
+  rpc ListRecipes(ListRecipesRequest) returns (ListRecipesResponse) {
+    option (trpc.api.http) = { get: "/v1/apps/{app_id}/recipes" };
+  }
+  rpc CreateRecipe(CreateRecipeRequest) returns (Recipe) { // 201，status=DRAFT
+    option (trpc.api.http) = { post: "/v1/apps/{app_id}/recipes" body: "*" };
+  }
+  rpc GetRecipe(GetRecipeRequest) returns (Recipe) {
+    option (trpc.api.http) = { get: "/v1/apps/{app_id}/recipes/{recipe_id}" };
+  }
+  rpc UpdateRecipe(UpdateRecipeRequest) returns (Recipe) { // 全量保存，状态不变
+    option (trpc.api.http) = { put: "/v1/apps/{app_id}/recipes/{recipe_id}" body: "*" };
+  }
+  rpc MarkRecipeReady(MarkRecipeReadyRequest) returns (Recipe) { // 失败 422 + errors[]
+    option (trpc.api.http) = { post: "/v1/apps/{app_id}/recipes/{recipe_id}/ready" body: "*" };
+  }
+  rpc SelectRecipe(SelectRecipeRequest) returns (Recipe) {
+    option (trpc.api.http) = { post: "/v1/apps/{app_id}/recipes/{recipe_id}/select" body: "*" };
+  }
+
+  // ---- 配置解析（平台内部）----
+  rpc ResolveRecipe(ResolveRecipeRequest) returns (ResolveRecipeResponse) {
+    option (trpc.api.http) = { get: "/v1/apps/{app_id}/effective-recipe" };
+  }
+
+  // ---- 删除（平台内部：运维与自测用，不在企业用户页面暴露）----
+  //
+  // 产品侧 MVP 不提供删除。这两条仍写进契约而不是只留在代码里——
+  // 契约是接口的唯一事实源，"能调通但没写"比"写了标注内部"危险得多。
+  rpc DeleteApp(DeleteAppRequest) returns (google.protobuf.Empty) { // 204，配方不连带删除
+    option (trpc.api.http) = { delete: "/v1/apps/{app_id}" };
+  }
+  // 当前被应用选用的配方不能删（409 RECIPE_IN_USE），否则 selected_recipe_id 悬空
+  rpc DeleteRecipe(DeleteRecipeRequest) returns (google.protobuf.Empty) { // 204，软删
+    option (trpc.api.http) = { delete: "/v1/apps/{app_id}/recipes/{recipe_id}" };
+  }
+}
+
+// ============ 错误码对照（页面据 code 判断，据 field/errors 定位） ============
+//
+// HTTP | code                        | 场景
+// -----|-----------------------------|--------------------------------------------
+// 400  | APP_TYPE_REQUIRED           | 创建应用未选类型                    (field=appType)
+// 400  | APP_TYPE_INVALID            | 应用类型取值非法                    (field=appType)
+// 400  | APP_TYPE_UNAVAILABLE        | 该应用类型尚未开放                  (field=appType)
+// 400  | APP_NAME_REQUIRED           | 应用名称为空                        (field=name)
+// 400  | APP_NAME_TOO_LONG           | 应用名称超 128 字                   (field=name)
+// 400  | APP_DESCRIPTION_TOO_LONG    | 应用说明超 255 字                   (field=description)
+// 400  | REQUEST_BODY_INVALID        | 请求体不是合法 JSON
+// 400  | APP_REQUEST_INVALID         | 应用请求体其它问题（如空提交）
+// 400  | RECIPE_REQUEST_INVALID      | 配方字段格式/长度/区间非法（带 field）
+// 404  | APP_NOT_FOUND               | 应用不存在
+// 404  | SYSTEM_RECIPE_NOT_FOUND     | 模板不存在，或该 id 其实是应用配方
+// 404  | RECIPE_NOT_FOUND            | 配方不存在，或不属于该应用
+// 409  | SYSTEM_RECIPE_TYPE_MISMATCH | 模板与应用类型不符                  (field=systemRecipeId)
+// 409  | SYSTEM_RECIPE_UNAVAILABLE   | 该模板尚未开放（路线图占位）        (field=systemRecipeId)
+// 409  | RECIPE_STATUS_CONFLICT      | 非法状态流转（如选中一份草稿配方）
+// 409  | RECIPE_IN_USE               | 删除当前被应用选用的配方
+// 409  | APP_UNAVAILABLE             | 解析时应用不存在或已停用（内部接口）
+// 409  | RECIPE_NOT_READY            | 解析时配方不可用于生产（内部接口）
+// 409  | NO_RECIPE                   | 未指定配方且应用未选中配方（内部接口）
+// 422  | RECIPE_VALIDATION_FAILED    | 转就绪校验未过（带 errors[]，逐字段）
+// 500  | RECIPE_DATA_CORRUPTED       | 存储里的配方读不成一份合法配方（策略数据缺失、类型特化缺失等）
+// 500  | INTERNAL_ERROR              | 服务端异常，页面提示重试
+//
+// 注：`RECIPE_DATA_CORRUPTED` 归 5xx 而不是 4xx —— 客户端没做错任何事，
+// 报成 400 会让调用方去查自己的请求。响应只给概要，缺哪张表只进服务端日志。
