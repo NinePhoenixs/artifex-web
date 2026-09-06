@@ -12,8 +12,8 @@ services:
     ports:
       # 只绑本机。对外由服务器上的 nginx 反代过来（见 nginx-host.conf.example），
       # 容器本身不裸露公网。
-      # 18081 是为了和后端的 18080 区分开。
-      - "127.0.0.1:18081:80"
+      # 18082：18080 是后端，18081 已被服务器上的 sporttery-data-console 占用。
+      - "127.0.0.1:18082:80"
     networks:
       - blognet
 

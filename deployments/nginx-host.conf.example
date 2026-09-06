@@ -1,7 +1,13 @@
 # 服务器上那台 nginx 的配置示例（不是容器里的那份）。
 #
-# 这台服务器还跑着博客，80/443 已被占用，所以这里只是**加一个 server 块**，
-# 不要覆盖现有配置。放到 /etc/nginx/conf.d/artifex.conf 后 `nginx -t && nginx -s reload`。
+# 该服务器使用宝塔面板，nginx 配置目录是 /www/server/panel/vhost/nginx/，
+# 不是常见的 /etc/nginx/conf.d/。这台机器上已有 www.wunderminibar.com、
+# lottery-recognition、sporttery-data-console 等站点，**只加不改**。
+#
+# 两种加法：
+#   A. 宝塔面板 → 网站 → 添加站点 → 反向代理，目标填 http://127.0.0.1:18082
+#   B. 手动把本文件放到 /www/server/panel/vhost/nginx/artifex-web.conf
+#      然后 nginx -t && nginx -s reload
 #
 # 把 artifex.example.com 换成真实域名。
 
@@ -9,9 +15,9 @@ server {
     listen 80;
     server_name artifex.example.com;
 
-    # 证书签发前先放行，签完之后这段换成 301 跳 https
+    # 证书签发前先放行 http，签完后这段换成 301 跳 https
     location / {
-        proxy_pass http://127.0.0.1:18081;   # ← 前端容器
+        proxy_pass http://127.0.0.1:18082;   # ← 前端容器
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -20,11 +26,12 @@ server {
     }
 }
 
-# 上 HTTPS 用 certbot 最省事，它会自动改写上面这个 server 块：
+# HTTPS：宝塔面板 → 网站 → SSL → Let's Encrypt 申请，一键部署。
 #
-#   apt install certbot python3-certbot-nginx
-#   certbot --nginx -d artifex.example.com
+# **只需要暴露前端这一个入口。**
+# 后端不用单独配 server 块——/v1 由前端容器内的 nginx 反代过去
+# （见 deployments/nginx.conf）。
 #
-# 注意：**只需要暴露前端这一个入口**。
-# 后端不用单独配 server 块——/v1 由前端容器内的 nginx 反代过去（deployments/nginx.conf），
-# 后端容器始终只绑 127.0.0.1，不对外。
+# 已知问题（属于后端仓库，需后端修）：后端 compose 的端口映射写成
+# "18080:8080"，缺少 127.0.0.1 前缀，导致后端接口直接暴露在公网。
+# 应改为 "127.0.0.1:18080:8080"。
