@@ -57,13 +57,21 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/artifex
-            # 不做 docker login：ghcr 上的镜像是公开的，匿名即可拉取。
+
+            # 凭据存本项目专属目录，不用默认的 /root/.docker。
             #
-            # 这台服务器上跑着多个项目，而 docker login 的凭据是**机器级**的
-            # （/root/.docker/config.json 每个 registry 只有一个槽位）。
-            # 各项目各自 login 会互相覆盖，谁后发版谁把别人的凭据顶掉。
-            # 镜像公开后不需要凭据，这类冲突从根上消失。
+            # docker login 的凭据默认是**机器级**的：/root/.docker/config.json
+            # 里每个 registry 只有一个槽位。这台服务器同时跑着前端和后端，
+            # 两边各自 login 会互相覆盖——谁后发版谁把对方的凭据顶掉，
+            # 于是两个项目都拉不动镜像。GitHub 上仓库是隔离的，服务器上不是。
+            #
+            # DOCKER_CONFIG 指定凭据目录，各存各的即可互不干扰。
+            # 后端 artifex-core 需同样加上，指向 /opt/artifex/.docker-core。
+            export DOCKER_CONFIG=/opt/artifex/.docker-web
+            mkdir -p "$DOCKER_CONFIG"
+
+            cd /opt/artifex
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.web.yaml pull
             docker compose -f docker-compose.web.yaml up -d
             docker image prune -f
