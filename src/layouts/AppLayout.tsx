@@ -111,7 +111,7 @@ function labelWithHint(text: string, comingSoon: boolean) {
     <span>
       {text}
       <Tag
-        bordered={false}
+        variant="filled"
         style={{ marginInlineStart: 8, fontSize: 11, lineHeight: '16px' }}
       >
         敬请期待

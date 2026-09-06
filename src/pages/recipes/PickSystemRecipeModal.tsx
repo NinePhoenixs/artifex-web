@@ -68,7 +68,7 @@ export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
               styles={{ body: { padding: 18 } }}
               style={{ opacity: sr.available ? 1 : 0.6 }}
             >
-              <Tag bordered={false} color="blue" style={{ marginBottom: 8 }}>
+              <Tag variant="filled" color="blue" style={{ marginBottom: 8 }}>
                 系统配方
               </Tag>
               <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 6 }}>
@@ -112,7 +112,7 @@ export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
                   使用此配方
                 </Button>
               ) : (
-                <Tag bordered={false}>敬请期待</Tag>
+                <Tag variant="filled">敬请期待</Tag>
               )}
             </Card>
           ))}

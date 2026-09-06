@@ -162,10 +162,10 @@ export default function RecipeListPage() {
  */
 function StatusTag({ row, selectedId }: { row: RecipeListItem; selectedId: string }) {
   if (row.recipeId === selectedId) {
-    return <Tag color="success" bordered={false}>● 使用中</Tag>
+    return <Tag color="success" variant="filled">● 使用中</Tag>
   }
   if (row.status === 'ready') {
-    return <Tag color="blue" bordered={false}>就绪</Tag>
+    return <Tag color="blue" variant="filled">就绪</Tag>
   }
-  return <Tag bordered={false}>草稿</Tag>
+  return <Tag variant="filled">草稿</Tag>
 }

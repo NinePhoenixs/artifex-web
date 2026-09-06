@@ -188,11 +188,11 @@ export default function RecipeEditorPage() {
           {recipe.name}
         </Typography.Title>
         {isSelected ? (
-          <Tag color="success" bordered={false}>● 使用中</Tag>
+          <Tag color="success" variant="filled">● 使用中</Tag>
         ) : recipe.status === 'ready' ? (
-          <Tag color="blue" bordered={false}>就绪</Tag>
+          <Tag color="blue" variant="filled">就绪</Tag>
         ) : (
-          <Tag bordered={false}>草稿</Tag>
+          <Tag variant="filled">草稿</Tag>
         )}
         <Space style={{ marginLeft: 'auto' }}>
           <Button loading={save.isPending} onClick={() => submit('save')} disabled={pending}>

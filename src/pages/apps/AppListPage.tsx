@@ -91,7 +91,7 @@ export default function AppListPage() {
               styles={{ body: { padding: 20 } }}
             >
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                <Tag color="blue" bordered={false}>
+                <Tag color="blue" variant="filled">
                   {app.appTypeName || label('appType', app.appType)}
                 </Tag>
                 <Space size={4} style={{ marginLeft: 'auto' }}>
