@@ -114,7 +114,7 @@ src/
 发版流程与后端一致，打版本 tag 触发：
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag v0.0.1 && git push origin v0.0.1
 ```
 
 首次部署、回退方式与本地验证镜像的方法见 [`docs/部署发版.md`](docs/部署发版.md)。
