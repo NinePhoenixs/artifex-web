@@ -1,0 +1,45 @@
+# 日常检查：每次推送和 PR 都跑。不发版。
+name: 检查
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: 安装依赖
+        # --frozen-lockfile：lockfile 与 package.json 对不上就直接失败，
+        # 避免 CI 悄悄装了和本地不一样的版本
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 测试
+        run: pnpm test
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 检查演示数据没有混进生产产物
+        # mocks/ 必须动态 import 才会被摇掉。改成静态 import 的话假数据会
+        # 跟着进产物——这个卡点就是防止那次回退重演，见 README。
+        run: |
+          if grep -rq "待补全的测试配方" dist/assets/*.js; then
+            echo "::error::演示数据出现在生产产物里，检查 src/api/client.ts 是否改成了静态 import"
+            exit 1
+          fi
+          echo "✅ 产物干净"

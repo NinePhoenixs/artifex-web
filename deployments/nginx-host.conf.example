@@ -1,0 +1,30 @@
+# 服务器上那台 nginx 的配置示例（不是容器里的那份）。
+#
+# 这台服务器还跑着博客，80/443 已被占用，所以这里只是**加一个 server 块**，
+# 不要覆盖现有配置。放到 /etc/nginx/conf.d/artifex.conf 后 `nginx -t && nginx -s reload`。
+#
+# 把 artifex.example.com 换成真实域名。
+
+server {
+    listen 80;
+    server_name artifex.example.com;
+
+    # 证书签发前先放行，签完之后这段换成 301 跳 https
+    location / {
+        proxy_pass http://127.0.0.1:18081;   # ← 前端容器
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+}
+
+# 上 HTTPS 用 certbot 最省事，它会自动改写上面这个 server 块：
+#
+#   apt install certbot python3-certbot-nginx
+#   certbot --nginx -d artifex.example.com
+#
+# 注意：**只需要暴露前端这一个入口**。
+# 后端不用单独配 server 块——/v1 由前端容器内的 nginx 反代过去（deployments/nginx.conf），
+# 后端容器始终只绑 127.0.0.1，不对外。

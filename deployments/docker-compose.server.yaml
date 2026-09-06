@@ -1,0 +1,25 @@
+# 服务器专用 compose。镜像从 ghcr 拉取，不在服务器上 build。
+#
+# 用法：放到服务器 /opt/artifex/ 目录（和后端那份放一起），
+#      docker compose -f docker-compose.web.yaml up -d
+#
+# 前后端各自独立发版：改前端不用重启后端，反之亦然。
+services:
+  web:
+    image: ghcr.io/ninephoenixs/artifex-web:latest
+    container_name: artifex-web
+    restart: unless-stopped
+    ports:
+      # 只绑本机。对外由服务器上的 nginx 反代过来（见 nginx-host.conf.example），
+      # 容器本身不裸露公网。
+      # 18081 是为了和后端的 18080 区分开。
+      - "127.0.0.1:18081:80"
+    networks:
+      - blognet
+
+networks:
+  # 必须和后端容器在同一个网络里，容器内的 nginx 才能用容器名
+  # artifex-app 访问到后端。网络名与后端那份 compose 保持一致。
+  blognet:
+    external: true
+    name: wunderminibar_blog_default

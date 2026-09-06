@@ -1,0 +1,59 @@
+# 自动发版：build 镜像 → 推 ghcr → SSH 让服务器拉新镜像重启。
+# 与后端 artifex-core 的流程完全一致，前后端各自独立发版、互不阻塞。
+#
+# 触发：打 v 开头的版本 tag（如 v1.0.0）。合并到 main 不发版，只攒代码。
+# 回退：每个版本的镜像都带版本号留在 ghcr，把 compose 里的 :latest 改成
+#      要回退的 tag 再重启即可。
+name: 构建并部署
+
+on:
+  workflow_dispatch: {}        # Actions 页面手动点 Run（兜底 / 紧急发版）
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # 允许推镜像到 ghcr
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Buildx（启用构建缓存）
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 ghcr 镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # GitHub 自动提供，不用手动配
+
+      - name: 构建并推送镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployments/Dockerfile
+          push: true
+          # 同时打版本号和 latest：版本号镜像永久留存便于回退，latest 指向最新
+          tags: |
+            ghcr.io/ninephoenixs/artifex-web:${{ github.ref_name }}
+            ghcr.io/ninephoenixs/artifex-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: SSH 到服务器，拉新镜像并重启
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /opt/artifex
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.web.yaml pull
+            docker compose -f docker-compose.web.yaml up -d
+            docker image prune -f
