@@ -10,8 +10,8 @@ import { useEnums } from '@/hooks/useEnums'
 import AppFormModal from './AppFormModal'
 
 /**
- * 应用列表。卡片式，照原型。
- * **不显示「最近任务」**——后端 latestJob 本期恒为空，见 docs/设计方案.md §6.1。
+ * 应用列表，卡片式。
+ * 不显示「最近任务」：后端 latestJob 目前恒为空，见 docs/设计方案.md §6.1。
  */
 export default function AppListPage() {
   const navigate = useNavigate()
@@ -34,7 +34,7 @@ export default function AppListPage() {
             应用
           </Typography.Title>
           <Typography.Text type="secondary">
-            为不同企业内容生产场景创建独立应用，并集中管理配方、任务和成品。
+            一个应用对应一类内容，比如某个品牌的小红书笔记。配方和生产记录按应用分开。
           </Typography.Text>
         </div>
         <Button
@@ -129,7 +129,7 @@ export default function AppListPage() {
                   paddingTop: 12,
                 }}
               >
-                <span>{app.recipeCount} 个应用配方</span>
+                <span>{app.recipeCount} 份配方</span>
                 <span style={{ marginLeft: 'auto' }}>
                   更新于 {formatTime(app.updatedAt)}
                 </span>

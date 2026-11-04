@@ -1,8 +1,8 @@
-import { CheckOutlined } from '@ant-design/icons'
+import { CheckOutlined, PlusOutlined } from '@ant-design/icons'
 import { App, Button, Card, Modal, Skeleton, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { createRecipe, listSystemRecipes } from '@/api/endpoints'
+import { createBlankRecipe, createRecipe, listSystemRecipes } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import { useApiError } from '@/hooks/useApiError'
 
@@ -13,11 +13,9 @@ interface Props {
 }
 
 /**
- * 从模板新建配方。**两份原型都没画完整这一屏**，但它是必须的——
- * 后端规定配方只能从模板复制，不支持从空白创建。
+ * 创建配方：选一个系统配方复制，或从空白开始（三步提示词都自己写）。
  *
- * 服务端已按应用类型过滤，图文应用查出来只有图文模板；
- * 原型里那些「视频内容 敬请期待」的卡片根本不会出现。
+ * 服务端已按应用类型过滤，图文应用查出来只有图文模板。
  */
 export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
   const qc = useQueryClient()
@@ -31,8 +29,10 @@ export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
     enabled: open && Boolean(appId),
   })
 
+  // variables 为 null = 从空白建
   const mutation = useMutation({
-    mutationFn: (systemRecipeId: string) => createRecipe(appId, systemRecipeId),
+    mutationFn: (systemRecipeId: string | null) =>
+      systemRecipeId ? createRecipe(appId, systemRecipeId) : createBlankRecipe(appId),
     onSuccess: (recipe) => {
       message.success(`已创建「${recipe.name}」`)
       qc.invalidateQueries({ queryKey: qk.recipes(appId) })
@@ -47,15 +47,14 @@ export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
   return (
     <Modal
       open={open}
-      title="选择系统配方"
+      title="创建配方"
       footer={<Button onClick={onClose}>取消</Button>}
       onCancel={onClose}
       width={860}
       destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: -4 }}>
-        系统配方是平台预制的做法。选一个复制成你自己的配方，复制后彻底独立——
-        改它不影响模板，模板更新也不会回灌。
+        从模板复制一份再改，改动不影响模板；也可以从空白开始。
       </Typography.Paragraph>
 
       {isLoading ? (
@@ -116,6 +115,30 @@ export default function PickSystemRecipeModal({ appId, open, onClose }: Props) {
               )}
             </Card>
           ))}
+          <Card
+            hoverable
+            styles={{ body: { padding: 18, height: '100%', display: 'flex', flexDirection: 'column' } }}
+            style={{ borderStyle: 'dashed' }}
+          >
+            <Tag variant="filled" style={{ marginBottom: 8, alignSelf: 'flex-start' }}>
+              自定义
+            </Tag>
+            <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 6 }}>
+              空白配方
+            </Typography.Title>
+            <Typography.Paragraph type="secondary" style={{ fontSize: 13, minHeight: 40 }}>
+              三步都自己写，写好「写」这一步就能启用。
+            </Typography.Paragraph>
+            <Button
+              block
+              icon={<PlusOutlined />}
+              style={{ marginTop: 'auto' }}
+              loading={mutation.isPending && mutation.variables === null}
+              onClick={() => mutation.mutate(null)}
+            >
+              从空白开始
+            </Button>
+          </Card>
         </div>
       )}
     </Modal>

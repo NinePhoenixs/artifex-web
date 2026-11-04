@@ -51,7 +51,7 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
       return createApp(values)
     },
     onSuccess: (app) => {
-      message.success(isEdit ? '已保存' : '应用已创建，系统配方已备好')
+      message.success(isEdit ? '已保存' : '应用已创建，配方模板已备好')
       qc.invalidateQueries({ queryKey: qk.apps() })
       if (editing) qc.invalidateQueries({ queryKey: qk.app(app.appId) })
       onClose()
@@ -79,8 +79,8 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: -4 }}>
         {isEdit
-          ? '应用类型创建后不可更改。换场景请新建应用。'
-          : '确认应用基础信息和内容类型。MVP 仅开放图文类。'}
+          ? '内容类型创建后不能改，换一类内容请新建应用。'
+          : '一个应用对应一类内容。目前开放图文，视频、音频等类型敬请期待。'}
       </Typography.Paragraph>
 
       <Form
@@ -115,7 +115,7 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
           name="appType"
           label="内容类型"
           rules={[{ required: true, message: '请选择应用类型' }]}
-          extra="内容类型决定该应用可使用的系统配方和预期成品，创建应用后不可修改。"
+          extra="决定能用哪些配方模板，创建后不能改。"
         >
           <TypePicker disabled={isEdit} options={dict.appType} />
         </Form.Item>
@@ -125,7 +125,7 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
 }
 
 /**
- * 大卡片单选，照原型。
+ * 大卡片单选。
  * 可选类型与开放状态都来自后端 meta 接口，前端不维护清单——
  * 服务端同样会拒绝未开放的类型，不只靠前端拦。
  */
@@ -158,8 +158,8 @@ function TypePicker({
               if (!locked) onChange?.(opt.value as AppType)
             }}
             style={{
-              border: `1.5px solid ${active ? '#2563eb' : '#e2e8f0'}`,
-              background: active ? '#f5f8ff' : locked ? '#fafbfc' : '#fff',
+              border: `1.5px solid ${active ? '#2C4E92' : '#E2DED5'}`,
+              background: active ? '#F3F5FA' : locked ? '#FAF9F6' : '#fff',
               borderRadius: 10,
               padding: '12px 14px',
               cursor: locked ? 'not-allowed' : 'pointer',
