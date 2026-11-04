@@ -1,6 +1,7 @@
 # ---- build ----
 # 前端是「构建期产物」：Node 只在这一层用，最终镜像里没有 Node、没有 node_modules。
-FROM node:22-alpine AS build
+# 打包产物是纯静态文件，与架构无关：在构建机本身的架构上跑，不走模拟器
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /src
 
 # corepack 按 package.json 的 packageManager 字段装对应版本的 pnpm，
