@@ -5,11 +5,14 @@ import type { TableColumnsType } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { listAgents } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { Agent, StageName } from '@/api/types'
+import type { Agent, StageName, AgentUsage } from '@/api/types'
 import CenterTabs from '@/pages/capabilities/CenterTabs'
 import AgentDrawer from './AgentDrawer'
 
 export const STAGE_NAME: Record<StageName, string> = { retrieval: '找资料', generation: '写', review: '检查' }
+
+/** Agent 的「常用在」 */
+export const USAGE_NAME: Record<Exclude<AgentUsage, ''>, string> = { ...STAGE_NAME, assist: '写提示词' }
 
 /**
  * Agent = 一个大脑（模型）+ 角色说明 + 可选的能力。配方的每一步选一个 Agent 来做，
@@ -48,14 +51,14 @@ export default function AgentListPage() {
       title: '常用在',
       key: 'stage',
       width: 100,
-      render: (_, a) => (a.assistant ? '配方页助手' : a.recommendStage ? STAGE_NAME[a.recommendStage] : '不限'),
+      render: (_, a) => (a.recommendStage ? USAGE_NAME[a.recommendStage] : '不限'),
     },
     {
       title: '配方在用',
       dataIndex: 'usedByRecipes',
       width: 96,
       align: 'right',
-      render: (n: number, a) => (a.assistant ? <Typography.Text type="secondary">—</Typography.Text> : <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>),
+      render: (n: number) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>,
     },
     {
       title: '状态',

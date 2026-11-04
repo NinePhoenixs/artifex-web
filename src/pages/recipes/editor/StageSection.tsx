@@ -327,7 +327,7 @@ function ActionPicker({
  */
 function AgentSelect({ stage, value = '', onChange }: { stage: StageKey; value?: string; onChange?: (v: string) => void }) {
   const { data } = useQuery({ queryKey: qk.agents(), queryFn: () => listAgents() })
-  const items = (data?.items ?? []).filter((a) => !a.assistant && (a.status === 'active' || a.agentId === value))
+  const items = (data?.items ?? []).filter((a) => a.recommendStage !== 'assist' && (a.status === 'active' || a.agentId === value))
   const sorted = [...items].sort((a, b) => Number(b.recommendStage === stage) - Number(a.recommendStage === stage))
   const fallback = DEFAULT_AGENT[stage]
   return (

@@ -9,7 +9,7 @@ import {
 } from '@/api/endpoints'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
-import type { Agent, AgentInput, AgentTryResult, StageName } from '@/api/types'
+import type { Agent, AgentInput, AgentTryResult, AgentUsage, StageName } from '@/api/types'
 import { useApiError } from '@/hooks/useApiError'
 import { GrantPicker, MAX_PER_STAGE } from '@/pages/recipes/editor/AiSection'
 import { STAGE_NAME } from './AgentListPage'
@@ -25,7 +25,7 @@ interface FormValues {
   name: string
   description: string
   modelId: string
-  recommendStage: StageName | ''
+  recommendStage: AgentUsage
   rolePrompt: string
   capabilities: string[]
   maxLlmCalls: number | null
@@ -51,7 +51,9 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
   })
   const { data: providers } = useQuery({ queryKey: qk.providers(), queryFn: listProviders, enabled: open })
   const { data: caps } = useQuery({ queryKey: qk.capabilities({}), queryFn: () => listCapabilities({}), enabled: open })
-  const stage = (Form.useWatch('recommendStage', form) || 'generation') as StageName
+  const usage = Form.useWatch('recommendStage', form) as AgentUsage | undefined
+  // 能力清单按步骤排推荐；写提示词、不限按「写」排
+  const stage: StageName = usage === 'retrieval' || usage === 'review' ? usage : 'generation'
 
   useEffect(() => {
     if (!open) return
@@ -100,12 +102,9 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
   const submit = (v: FormValues) => {
     // 已挑过的 MCP 动作原样保留；新勾的默认全部动作
     const prev = new Map((agent?.capabilities ?? []).map((c) => [c.capabilityId, c.actions]))
-    // 参谋的表单不显示「常用在哪一步」和「自带能力」，这两项沿用原值
-    const capIds = v.capabilities ?? agent?.capabilities.map((c) => c.capabilityId) ?? []
     save.mutate({
-      name: v.name, description: v.description, modelId: v.modelId, rolePrompt: v.rolePrompt,
-      recommendStage: v.recommendStage ?? agent?.recommendStage ?? '',
-      capabilities: capIds.map((id) => ({ capabilityId: id, actions: prev.get(id) ?? [] })),
+      name: v.name, description: v.description, modelId: v.modelId, recommendStage: v.recommendStage, rolePrompt: v.rolePrompt,
+      capabilities: v.capabilities.map((id) => ({ capabilityId: id, actions: prev.get(id) ?? [] })),
       maxLlmCalls: v.maxLlmCalls ?? 0, costCapCent: v.costCapYuan ? Math.round(v.costCapYuan * 100) : 0,
     })
   }
@@ -147,10 +146,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
         <Skeleton active />
       ) : (
         <>
-          {agent?.assistant ? (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }}
-              title="参谋负责配方页的「AI 生成 / AI 优化 / AI 帮我检查」和技能的「让 AI 帮我写」，不参与生产。可以换模型、改角色说明。" />
-          ) : agent?.origin === 'platform' && (
+          {agent?.origin === 'platform' && agent.usedByRecipes > 0 && (
             <Alert type="info" showIcon style={{ marginBottom: 16 }}
               title={`${agent.usedByRecipes} 份配方在用它，改动会影响这些配方之后写的每一篇。`} />
           )}
@@ -167,23 +163,22 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
             <Form.Item name="description" label="一句话说明" extra="选 Agent 时显示在名字下面">
               <Input maxLength={255} placeholder="如：写要求高的长稿，用更强的模型" />
             </Form.Item>
-            {!agent?.assistant && (
-              <Form.Item name="recommendStage" label="常用在哪一步" extra="配方里选 Agent 时排在前面">
-                <Segmented options={[{ value: 'retrieval', label: '找资料' }, { value: 'generation', label: '写' },
-                  { value: 'review', label: '检查' }, { value: '', label: '不限' }]} />
-              </Form.Item>
-            )}
+            <Form.Item name="recommendStage" label="常用在哪一步"
+              extra={usage === 'assist'
+                ? '用来写配方提示词：配方页的 AI 生成 / 优化 / 检查和技能的「让 AI 帮我写」由平台自带的这一个完成，不能选进生产步骤'
+                : '配方里选 Agent 时排在前面'}>
+              <Segmented options={[{ value: 'retrieval', label: '找资料' }, { value: 'generation', label: '写' },
+                { value: 'review', label: '检查' }, { value: 'assist', label: '写提示词' }, { value: '', label: '不限' }]} />
+            </Form.Item>
             <Form.Item name="rolePrompt" label="角色说明" extra="它是谁、做事守哪些原则。每份配方的具体要求写在配方里。">
               <Input.TextArea autoSize={{ minRows: 4, maxRows: 12 }} maxLength={20000}
                 placeholder="如：你负责把素材写成成稿：只用素材里的事实和数字，按任务要求的读者、口吻和篇幅写。" />
             </Form.Item>
-            {!agent?.assistant && (
-              <Form.Item name="capabilities" label={`自带能力（最多 ${MAX_PER_STAGE} 个，可以不带）`}
-                extra="每份用它的配方都会带上。只有个别配方要用的，在配方里单独加。">
-                <CapabilityList stage={stage} caps={caps?.items ?? []} />
-              </Form.Item>
-            )}
-            <div style={{ display: agent?.assistant ? 'none' : 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <Form.Item name="capabilities" label={`自带能力（最多 ${MAX_PER_STAGE} 个，可以不带）`}
+              extra="每份用它的配方都会带上。只有个别配方要用的，在配方里单独加。">
+              <CapabilityList stage={stage} caps={caps?.items ?? []} />
+            </Form.Item>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Form.Item name="maxLlmCalls" label="一次最多调模型几次" extra="不填按步骤默认：找资料 10 / 写 6 / 检查 8">
                 <InputNumber min={1} max={30} style={{ width: '100%' }} placeholder="按步骤默认" />
               </Form.Item>
@@ -193,7 +188,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
             </div>
           </Form>
 
-          {!isNew && agent && !agent.assistant && (
+          {!isNew && agent && (
             <>
               <TryAgent agent={agent} />
               <UsedBy agent={agent} />

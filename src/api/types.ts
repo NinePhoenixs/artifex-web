@@ -223,17 +223,18 @@ export interface AgentCapabilityRef {
   actions: string[]
 }
 
+export type AgentUsage = StageName | 'assist' | ''
+
 export interface Agent {
   agentId: string
   name: string
   description: string
   modelId: string
   modelLabel: string
-  recommendStage: StageName | ''
+  /** 常用在哪一步；assist = 写提示词（配方页的 AI 生成 / 优化 / 检查），不能用在生产步骤 */
+  recommendStage: AgentUsage
   capabilities: AgentCapabilityRef[]
   origin: 'platform' | 'custom'
-  /** 平台助手（参谋）：管配方页的 AI 生成 / 优化 / 检查，配方步骤选不到它 */
-  assistant: boolean
   status: ActiveStatus
   usedByRecipes: number
   /** 以下只在详情里有 */
@@ -248,7 +249,7 @@ export interface AgentInput {
   description?: string
   modelId?: string
   rolePrompt?: string
-  recommendStage?: StageName | ''
+  recommendStage?: AgentUsage
   capabilities?: { capabilityId: string; actions: string[] }[]
   maxLlmCalls?: number
   costCapCent?: number
