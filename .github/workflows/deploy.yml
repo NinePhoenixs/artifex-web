@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: 拉取代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 算版本号
         id: v
@@ -43,10 +43,10 @@ jobs:
           echo "tag=$v" >> "$GITHUB_OUTPUT"
 
       - name: 准备 Buildx（启用构建缓存）
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: 构建镜像
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deployments/Dockerfile
