@@ -1,18 +1,28 @@
-# 自动发版：build 镜像 → 推 ghcr → SSH 让服务器拉新镜像重启。
-# 与后端 artifex-core 的流程完全一致，前后端各自独立发版、互不阻塞。
+# 自动发版：检查 → build 镜像 → 推 ghcr → SSH 让服务器拉新镜像重启 → 确认起来了。
+# 与后端 artifex-core 的流程一致，前后端各自独立发版、互不阻塞。
 #
-# 触发：打 v 开头的版本 tag（如 v0.0.1）。合并到 main 不发版，只攒代码。
-# 回退：每个版本的镜像都带版本号留在 ghcr，把 compose 里的 :latest 改成
-#      要回退的 tag 再重启即可。
+# 触发：合并到 main 自动上线；打 v 开头的 tag 也会上线，并留一个带版本号的镜像。
+# 回退：镜像都留在 ghcr（latest / sha-提交号 / 版本号），服务器 .env 里加 WEB_TAG=要回退的标签 再 up -d。
+# 需要的 Secrets：SERVER_HOST、SERVER_USER、SERVER_PASSWORD、GHCR_TOKEN（read:packages）。
 name: 构建并部署
 
 on:
-  workflow_dispatch: {}        # Actions 页面手动点 Run（兜底 / 紧急发版）
+  workflow_dispatch: {}        # Actions 页面手动 Run（重新部署当前 main）
   push:
-    tags: [ 'v*' ]
+    branches: [ main ]         # 合并到 main 自动上线
+    tags: [ 'v*' ]             # 打版本 tag：同样上线，并留一个带版本号的镜像
+
+# 同一时间只跑一次发版，后合并的排队，不会两次部署互相踩
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
   build-and-deploy:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,6 +42,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}   # GitHub 自动提供，不用手动配
 
+      - name: 算镜像标签
+        id: tags
+        # main：latest + 提交号；版本 tag：latest + 版本号。都留在 ghcr，回退时按标签取
+        run: |
+          repo=ghcr.io/ninephoenixs/artifex-web
+          if [ "${{ github.ref_type }}" = "tag" ]; then v="${{ github.ref_name }}"; else v="sha-${GITHUB_SHA::7}"; fi
+          echo "list=$repo:latest,$repo:$v" >> "$GITHUB_OUTPUT"
+
       - name: 构建并推送镜像
         uses: docker/build-push-action@v6
         with:
@@ -39,11 +57,19 @@ jobs:
           file: deployments/Dockerfile
           push: true
           # 同时打版本号和 latest：版本号镜像永久留存便于回退，latest 指向最新
-          tags: |
-            ghcr.io/ninephoenixs/artifex-web:${{ github.ref_name }}
-            ghcr.io/ninephoenixs/artifex-web:latest
+          tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: 同步 compose 到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          source: deployments/docker-compose.server.yaml
+          target: /opt/artifex/web
+          rm: true
 
       - name: SSH 到服务器，拉新镜像并重启
         uses: appleboy/ssh-action@v1
@@ -58,19 +84,14 @@ jobs:
           script: |
             set -euo pipefail
 
-            # 凭据存本项目专属目录，不用默认的 /root/.docker。
-            #
-            # docker login 的凭据默认是**机器级**的：/root/.docker/config.json
-            # 里每个 registry 只有一个槽位。这台服务器同时跑着前端和后端，
-            # 两边各自 login 会互相覆盖——谁后发版谁把对方的凭据顶掉，
-            # 于是两个项目都拉不动镜像。GitHub 上仓库是隔离的，服务器上不是。
-            #
-            # DOCKER_CONFIG 指定凭据目录，各存各的即可互不干扰。
-            # 后端 artifex-core 需同样加上，指向 /opt/artifex/.docker-core。
+            # 凭据存本项目专属目录：docker login 默认存 /root/.docker，每个 registry 一个槽位，
+            # 前后端各自 login 会互相覆盖。后端用 /opt/artifex/.docker-core。
             export DOCKER_CONFIG=/opt/artifex/.docker-web
             mkdir -p "$DOCKER_CONFIG"
 
             cd /opt/artifex
+            cp web/deployments/docker-compose.server.yaml docker-compose.web.yaml
+            docker network create artifex 2>/dev/null || true
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.web.yaml pull
             docker compose -f docker-compose.web.yaml up -d
