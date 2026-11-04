@@ -175,7 +175,9 @@ export interface AiModel {
   /** 厂商侧模型名，调接口时传 */
   name: string
   label: string
-  /** 元 / 千 token */
+  /** free 免费 / plan 包月或套餐 / metered 按量计费（只有它按单价算钱） */
+  billing: 'free' | 'plan' | 'metered'
+  /** 元 / 千 token，只对按量计费有意义 */
   inputPricePer1k: string
   outputPricePer1k: string
   maxOutputTokens: number

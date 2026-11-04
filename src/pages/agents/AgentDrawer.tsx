@@ -182,7 +182,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
               <Form.Item name="maxLlmCalls" label="一次最多调模型几次" extra="不填按步骤默认：找资料 10 / 写 6 / 检查 8">
                 <InputNumber min={1} max={30} style={{ width: '100%' }} placeholder="按步骤默认" />
               </Form.Item>
-              <Form.Item name="costCapYuan" label="一次最多花多少" extra="不填用平台默认 1 元">
+              <Form.Item name="costCapYuan" label="一次最多花多少" extra="只对按量计费的模型生效，不填用平台默认 1 元">
                 <InputNumber min={0} step={0.5} precision={2} suffix="元" style={{ width: '100%' }} placeholder="平台默认" />
               </Form.Item>
             </div>

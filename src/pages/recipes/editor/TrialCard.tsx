@@ -8,6 +8,7 @@ import { DONE, JOB_STATUS, JobDrawer, useJobWatch } from '@/components/JobView'
 import { useApiError } from '@/hooks/useApiError'
 import { formatTime } from '@/pages/jobs/JobListPage'
 import { brand } from '@/theme'
+import { sumUsage, usageText } from '@/components/usage'
 
 /**
  * 右侧「最近一次试产」：用这份配方已保存的设置真跑一篇，看成稿和 AI 用量。
@@ -61,10 +62,7 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
   } catch {
     tags = []
   }
-  const usage = runs.reduce(
-    (s, r) => ({ tokens: s.tokens + r.inputTokens + r.outputTokens, cost: s.cost + Number(r.cost), ms: s.ms + r.costMs }),
-    { tokens: 0, cost: 0, ms: 0 },
-  )
+  const usage = sumUsage(runs)
   const skills = runs.flatMap((r) => r.steps).filter((s) => s.kind === 'skill' || s.kind === 'tool')
   const usedNames = [...new Set(skills.map((s) => s.name.replace(/^run_skill_script:/, '运行脚本 ')))]
 
@@ -154,7 +152,7 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
           )}
           <div style={{ display: 'flex', alignItems: 'center', fontSize: 12 }}>
             <Typography.Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-              {running ? '正在产…' : `${usage.cost.toFixed(2)} 元 · ${usage.tokens.toLocaleString()} token · ${(usage.ms / 1000).toFixed(0)} 秒`}
+              {running ? '正在产…' : usageText(usage)}
             </Typography.Text>
             <Button type="link" size="small" style={{ marginLeft: 'auto', paddingRight: 0 }} onClick={() => setViewing(latest.jobId)}>
               看全文

@@ -4,6 +4,7 @@ import { getJob, listAgents, listAiRuns } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { AiRun, AiRunStep, JobStatus, ProductionJob } from '@/api/types'
 import { brand } from '@/theme'
+import { secondsText, sumUsage, usageText } from './usage'
 
 /** 生产任务的展示件：进度、成稿、AI 做了什么。试跑与生产记录共用。 */
 
@@ -119,6 +120,11 @@ export function RunTrace({ runs }: { runs: AiRun[] }) {
   return (
     <>
       <Typography.Title level={5}>AI 做了什么</Typography.Title>
+      {runs.length > 0 && (
+        <Typography.Paragraph type="secondary" style={{ fontSize: 13, marginTop: -4, fontVariantNumeric: 'tabular-nums' }}>
+          合计 {usageText(sumUsage(runs))}
+        </Typography.Paragraph>
+      )}
       {runs.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="AI 还没开始，或这一步没用到 AI" />
       ) : (
@@ -130,7 +136,7 @@ export function RunTrace({ runs }: { runs: AiRun[] }) {
               {r.attempt > 1 && <Typography.Text type="secondary">第 {r.attempt} 轮</Typography.Text>}
               <Tag color={RUN_STATUS[r.status].color}>{RUN_STATUS[r.status].label}</Tag>
               <Typography.Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-                {r.model} · {(r.inputTokens + r.outputTokens).toLocaleString()} token · {Number(r.cost).toFixed(4)} 元 · {(r.costMs / 1000).toFixed(1)} 秒
+                {r.model} · {usageText(sumUsage([r]))}
               </Typography.Text>
             </Space>
             {r.skipped.length > 0 && (
@@ -160,8 +166,7 @@ function StepLine({ step: s }: { step: AiRunStep }) {
     <li style={{ marginBottom: 4, color: s.status === 'failed' ? '#C2412D' : undefined }}>
       <Typography.Text>{what}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>
-        {s.kind === 'model' && `${(s.inputTokens ?? 0) + (s.outputTokens ?? 0)} token · `}
-        {(s.costMs / 1000).toFixed(1)} 秒
+        {secondsText(s.costMs)}
         {s.errorMsg && ` · ${s.errorMsg}`}
       </Typography.Text>
     </li>

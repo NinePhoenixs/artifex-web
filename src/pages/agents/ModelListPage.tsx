@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { CheckCircleFilled, CloseCircleFilled, PlusOutlined } from '@ant-design/icons'
 import {
-  Alert, App, AutoComplete, Button, Card, Collapse, Form, Input, InputNumber, Modal, Popconfirm, Skeleton, Space, Switch, Table, Tag, Typography,
+  Alert, App, AutoComplete, Button, Card, Collapse, Form, Input, InputNumber, Modal, Popconfirm, Segmented, Skeleton, Space, Switch, Table, Tag,
+  Typography,
 } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -93,14 +94,14 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
       ),
     },
     {
-      title: '单价（元 / 千 token）',
-      key: 'price',
-      width: 170,
-      render: (_, m) => (
+      title: '计费',
+      key: 'billing',
+      width: 200,
+      render: (_, m) => (m.billing === 'metered' ? (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {m.inputPricePer1k === '0' && m.outputPricePer1k === '0' ? '免费' : `输入 ${m.inputPricePer1k} · 输出 ${m.outputPricePer1k}`}
+          按量 · 输入 {m.inputPricePer1k} / 输出 {m.outputPricePer1k} 元每千 token
         </span>
-      ),
+      ) : BILLING_LABEL[m.billing]),
     },
     { title: '思考模式', dataIndex: 'disableThinking', width: 90, render: (off: boolean) => (off ? '关' : '开') },
     { title: 'Agent 在用', dataIndex: 'usedByAgents', width: 110, align: 'right' },
@@ -254,6 +255,14 @@ function ProviderModal({ value, onClose }: { value: AiProvider | 'new' | null; o
   )
 }
 
+const BILLING_LABEL: Record<AiModel['billing'], string> = { free: '免费', plan: '包月 / 套餐内', metered: '按量计费' }
+
+const BILLING_HINT: Record<AiModel['billing'], string> = {
+  free: '不算钱，生产详情里只显示 token 和用时',
+  plan: '如火山方舟 Agent Plan：按月付费、不按 token 收钱，生产详情里不显示花费',
+  metered: '按 token × 单价算每篇花了多少，Agent 的「一次最多花多少」也按它卡',
+}
+
 function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?: AiModel } | null; onClose: () => void }) {
   const isNew = !value?.model
   const [form] = Form.useForm()
@@ -282,9 +291,14 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
       onError(e)
     },
   })
-  const initial = value?.model ?? {
-    name: '', label: '', inputPricePer1k: '0', outputPricePer1k: '0', maxOutputTokens: 4000, disableThinking: false, requestTimeoutSec: 90,
+  // 单价 0 不预填：切到按量计费时要照厂商价格页填
+  const blankZero = (v: string) => (Number(v) > 0 ? v : '')
+  const initial = value?.model
+    ? { ...value.model, inputPricePer1k: blankZero(value.model.inputPricePer1k), outputPricePer1k: blankZero(value.model.outputPricePer1k) }
+    : {
+    name: '', label: '', billing: 'free', inputPricePer1k: '', outputPricePer1k: '', maxOutputTokens: 4000, disableThinking: false, requestTimeoutSec: 90,
   }
+  const billing = Form.useWatch('billing', form) as AiModel['billing'] | undefined
   const names = remote.data?.items ?? []
   const nameHint = !value?.provider.secretConfigured
     ? '厂商还没填 API Key；填好后可以直接从列表里选'
@@ -307,23 +321,25 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
         <Form.Item name="label" label="显示名" extra="Agent 页选大脑时看到的名字，不填就用模型名">
           <Input placeholder="如：DeepSeek V3" maxLength={64} />
         </Form.Item>
+        <Form.Item name="billing" label="怎么收费" extra={BILLING_HINT[billing ?? 'free']}>
+          <Segmented options={[{ value: 'free', label: '免费' }, { value: 'plan', label: '包月 / 套餐' }, { value: 'metered', label: '按量计费' }]} />
+        </Form.Item>
+        {billing === 'metered' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <Form.Item name="inputPricePer1k" label="输入单价（元 / 千 token）" rules={[{ required: true, message: '照厂商价格页填' }]}>
+              <Input placeholder="如 0.002" />
+            </Form.Item>
+            <Form.Item name="outputPricePer1k" label="输出单价（元 / 千 token）" rules={[{ required: true, message: '照厂商价格页填' }]}>
+              <Input placeholder="如 0.008" />
+            </Form.Item>
+          </div>
+        )}
         <Collapse ghost size="small" style={{ margin: '0 -16px' }} items={[{
           key: 'more',
-          label: <Typography.Text type="secondary" style={{ fontSize: 13 }}>高级：单价、上限、思考模式（一般不用改）</Typography.Text>,
+          label: <Typography.Text type="secondary" style={{ fontSize: 13 }}>高级：输出上限、超时、思考模式（一般不用改）</Typography.Text>,
           forceRender: true,
           children: (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <Form.Item name="inputPricePer1k" label="输入单价（元 / 千 token）">
-                  <Input placeholder="免费或包月填 0" />
-                </Form.Item>
-                <Form.Item name="outputPricePer1k" label="输出单价（元 / 千 token）">
-                  <Input placeholder="免费或包月填 0" />
-                </Form.Item>
-              </div>
-              <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: -8 }}>
-                单价照厂商价格页填，用来算每篇花了多少、控制单次花费上限；填 0 就按免费算。
-              </Typography.Paragraph>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <Form.Item name="maxOutputTokens" label="单次输出上限（token）">
                   <InputNumber min={256} max={32000} style={{ width: '100%' }} />
