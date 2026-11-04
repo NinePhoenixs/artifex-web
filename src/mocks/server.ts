@@ -1,5 +1,6 @@
 import type { App, ErrorBody, FieldError, Recipe } from '@/api/types'
 import { MOCK_ENUMS, MOCK_SYSTEM_RECIPES, seedApps, seedRecipes } from './data'
+import { handleCapabilityMock, resetCapabilityMock } from './capabilities'
 
 /**
  * 后端没启动时的兜底。**只在开发环境启用**（见 client.ts）。
@@ -31,6 +32,7 @@ let store: Store = { apps: seedApps(), recipes: seedRecipes() }
 
 /** 供测试或"重置演示数据"用。 */
 export function resetMockStore() {
+  resetCapabilityMock()
   store = { apps: seedApps(), recipes: seedRecipes() }
 }
 
@@ -53,26 +55,10 @@ function findRecipe(appId: string, recipeId: string): Recipe {
 /** 转就绪的完整性校验——一次返回**全部**缺失字段，这是刻意的。 */
 function validateForReady(r: Recipe): FieldError[] {
   const errors: FieldError[] = []
-  const g = r.generationSpec
   const m = r.materialSpec
 
-  if (!g.targetAudience?.trim()) {
-    errors.push({ field: 'generationSpec.targetAudience', message: '请填写目标受众' })
-  }
-  if (!g.creationGoal?.trim()) {
-    errors.push({ field: 'generationSpec.creationGoal', message: '请填写创作目标' })
-  }
-  if ('targetWordCount' in g && !(g.targetWordCount && g.targetWordCount > 0)) {
-    errors.push({ field: 'generationSpec.targetWordCount', message: '请填写正文字数' })
-  }
-  if (g.tone === 'custom' && !g.customTone?.trim()) {
-    errors.push({ field: 'generationSpec.customTone', message: '请描述自定义表达风格' })
-  }
-  if (g.contentStructure === 'custom' && !g.customSections?.length) {
-    errors.push({ field: 'generationSpec.customSections', message: '请填写自定义段落' })
-  }
-  if (g.visualStyle === 'custom' && !g.customVisualStyle?.trim()) {
-    errors.push({ field: 'generationSpec.customVisualStyle', message: '请描述自定义视觉风格' })
+  if (!r.aiSetting.prompts.generation?.trim()) {
+    errors.push({ field: 'aiSetting.prompts.generation', message: '请写「写」这一步的提示词' })
   }
   if (m.freshness === 'custom' && !(m.customFreshness && m.customFreshness >= 1)) {
     errors.push({ field: 'materialSpec.customFreshness', message: '请填写自定义天数' })
@@ -224,6 +210,24 @@ export function handleMock(method: Method, path: string, body?: unknown): unknow
           return { items, total: items.length }
         }
         if (method === 'POST') {
+          if ((b as Record<string, unknown>).blank === true) {
+            const base = store.recipes.find((r) => r.systemRecipeId === MOCK_SYSTEM_RECIPES[0].systemRecipeId)!
+            const dupe = store.recipes.some((r) => r.appId === appId && r.name === '未命名配方')
+            const created: Recipe = {
+              ...structuredClone(base),
+              recipeId: nextId('mock-recipe'),
+              appId,
+              systemRecipeId: '',
+              status: 'draft',
+              name: dupe ? '未命名配方（副本）' : '未命名配方',
+              description: '',
+              aiSetting: { ...structuredClone(base.aiSetting), grants: { retrieval: [], generation: [], review: [] }, prompts: { retrieval: '', generation: '', review: '' }, actions: { retrieval: {}, generation: {}, review: {} } },
+              createdAt: now(),
+              updatedAt: now(),
+            }
+            store.recipes.push(created)
+            return created
+          }
           const srId = (b as Record<string, string>).systemRecipeId
           const src = MOCK_SYSTEM_RECIPES.find((s) => s.systemRecipeId === srId)
           if (!src) {
@@ -256,8 +260,8 @@ export function handleMock(method: Method, path: string, body?: unknown): unknow
             name: patch.name ?? r.name,
             description: patch.description ?? r.description,
             materialSpec: patch.materialSpec ?? r.materialSpec,
-            generationSpec: patch.generationSpec ?? r.generationSpec,
             reviewPolicy: patch.reviewPolicy ?? r.reviewPolicy,
+            aiSetting: patch.aiSetting ?? r.aiSetting,
             updatedAt: now(),
           })
           return r
@@ -297,6 +301,36 @@ export function handleMock(method: Method, path: string, body?: unknown): unknow
       }
     }
   }
+
+  // 模型目录与 Agent：只给出厂数据，够配方页和能力中心浏览用
+  if (method === 'GET' && path === '/v1/ai-providers') {
+    return {
+      items: [{
+        providerId: 'zhipu', name: '智谱', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', secretRef: 'ZHIPU_API_KEY',
+        secretConfigured: false, maxConcurrency: 2, status: 'active',
+        models: [{ modelId: 'glm-4.5-flash', providerId: 'zhipu', name: 'glm-4.5-flash', label: 'GLM-4.5-Flash（演示）',
+          inputPricePer1k: '0', outputPricePer1k: '0', maxOutputTokens: 4000, disableThinking: true,
+          requestTimeoutSec: 90, status: 'active', usedByAgents: 3 }],
+      }],
+    }
+  }
+  if (method === 'GET' && path.startsWith('/v1/agents')) {
+    const agent = (agentId: string, name: string, stage: string, capabilities: object[] = []) => ({
+      agentId, name, description: '', modelId: 'glm-4.5-flash', modelLabel: 'GLM-4.5-Flash（演示）',
+      recommendStage: stage, capabilities, origin: 'platform', status: 'active', usedByRecipes: 0,
+    })
+    return {
+      items: [
+        agent('caifeng', '采风', 'retrieval', [{ capabilityId: 'web_search', name: '联网搜索', kind: 'tool', actions: [] }]),
+        agent('zhibi', '执笔', 'generation'),
+        agent('jiaoshen', '校审', 'review'),
+      ],
+    }
+  }
+  if (method === 'GET' && path.startsWith('/v1/ai-runs')) return { items: [], total: 0 }
+  if (method === 'GET' && path.startsWith('/v1/production-jobs') && !path.startsWith('/v1/production-jobs/')) return { items: [], total: 0 }
+  const cap = handleCapabilityMock(method, path, body, MockError)
+  if (cap !== undefined) return cap
 
   throw new MockError(404, { code: 'NOT_FOUND', message: `演示数据里没有这条接口：${method} ${url}` })
 }

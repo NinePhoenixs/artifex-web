@@ -23,6 +23,9 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
 
 const toUrl = (path: string) => `${API_BASE}${path}`
 
+/** 后端地址拼接，给下载链接用（如导出技能包）。 */
+export const apiUrl = toUrl
+
 // ---------- 离线（后端未启动）状态 ----------
 
 let offline = false
@@ -99,10 +102,12 @@ export async function request<T>(
 ): Promise<T> {
   let res: Response
   try {
+    // 上传文件时交给浏览器设 multipart 边界，不能手写 Content-Type
+    const isForm = body instanceof FormData
     res = await fetch(toUrl(path), {
       method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined || isForm ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
     if (MOCK_ENABLED) {
@@ -148,13 +153,14 @@ export async function request<T>(
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  upload: <T>(path: string, form: FormData) => request<T>('POST', path, form),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
 }
 
 /**
  * 把后端的 DTO 字段路径转成 antd Form 的 namePath。
- * 'generationSpec.targetAudience' → ['generationSpec', 'targetAudience']
+ * 'aiSetting.prompts.generation' → ['aiSetting', 'prompts', 'generation']
  * 数字段转成 number，以支持 'x.0.y' 这种数组下标路径。
  */
 export function toNamePath(field: string): (string | number)[] {

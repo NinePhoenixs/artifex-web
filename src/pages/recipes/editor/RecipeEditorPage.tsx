@@ -10,22 +10,28 @@ import {
 import { qk } from '@/api/queryKeys'
 import type { Recipe, UpdateRecipeRequest } from '@/api/types'
 import { useApiError } from '@/hooks/useApiError'
-import { BasicSection, GenerationSection, MaterialSection, ReviewSection } from './sections'
-import { type SectionKey, sectionOfField } from './fieldVisibility'
+import { BasicSection, MaterialSection, ReviewSection } from './sections'
+import StageSection from './StageSection'
+import TrialCard from './TrialCard'
+import { findVariables } from './variables'
+import { type SectionKey, formFieldOf, sectionOfField } from './fieldVisibility'
+import { brand } from '@/theme'
 
-const SECTIONS: { key: SectionKey; label: string }[] = [
+/** 左侧分类：三步是主角，每步 = 提示词 + 带哪些能力 + 这一步自己的设置。 */
+const SECTIONS: { key: SectionKey; label: string; group?: string }[] = [
   { key: 'basic', label: '基本信息' },
-  { key: 'material', label: '资料检索' },
-  { key: 'generation', label: '内容生成' },
-  { key: 'review', label: '质量评审' },
+  { key: 'retrieval', label: '找资料', group: '三步' },
+  { key: 'generation', label: '写', group: '三步' },
+  { key: 'review', label: '检查', group: '三步' },
 ]
 
 /**
- * 编辑配方。设计见 docs/设计方案.md §7。
+ * 编辑配方：左侧分类，中间是当前这一块，右侧常驻「最近一次试产」。
+ * 「找资料 / 写 / 检查」每一步一整块提示词 + 这一步带的能力 + 这一步自己的设置——
+ * 设置跟着它影响的那一步走，不另开一个「配方设置」，免得来回跳。
  *
- * 关键点：**四段共用一个 Form**，分段导航只切换显示哪一块（用 display:none
- * 而不是卸载）。这样 422 返回跨段的一批字段错误时，一次 setFields 就能
- * 全部标红——包括当前没显示的段。
+ * 关键点：**所有块共用一个 Form**，切换分类只切换显示（display:none 而不是卸载）。
+ * 这样 422 返回跨块的一批字段错误时，一次 setFields 就能全部标红——包括当前没显示的块。
  */
 export default function RecipeEditorPage() {
   const { appId = '', recipeId = '' } = useParams()
@@ -35,7 +41,7 @@ export default function RecipeEditorPage() {
   const handleError = useApiError()
 
   const [form] = Form.useForm()
-  const [section, setSection] = useState<SectionKey>('basic')
+  const [section, setSection] = useState<SectionKey>('generation')
   const [errorSections, setErrorSections] = useState<Set<SectionKey>>(new Set())
   const [readyHint, setReadyHint] = useState<string | null>(null)
 
@@ -67,7 +73,7 @@ export default function RecipeEditorPage() {
     if (!list.length) return false
 
     form.setFields(
-      list.map((e) => ({ name: toNamePath(e.field), errors: [e.message] })),
+      list.map((e) => ({ name: toNamePath(formFieldOf(e.field)), errors: [e.message] })),
     )
     const secs = new Set(list.map((e) => sectionOfField(e.field)))
     setErrorSections(secs)
@@ -119,7 +125,7 @@ export default function RecipeEditorPage() {
     onError: (err) => {
       if (err instanceof ApiError && applyFieldErrors(err)) {
         setReadyHint(
-          '配置已保存，但还差下面标红的几项才能启用。补齐后再点一次「保存并启用」。',
+          '已保存。还差标红的几项才能启用，补齐后再点「保存并启用」。',
         )
         return
       }
@@ -132,8 +138,9 @@ export default function RecipeEditorPage() {
   const submit = (mode: 'save' | 'enable') => {
     form
       .validateFields()
-      .then((values) => {
-        const payload = toPayload(values, recipe)
+      .then(() => {
+        // 取整个表单存储，而不只是已注册的输入项：各步挑的 MCP 动作没有单独的输入框
+        const payload = toPayload(form.getFieldsValue(true), recipe)
         if (mode === 'save') {
           save.mutate(payload)
           return
@@ -170,12 +177,15 @@ export default function RecipeEditorPage() {
     [errorSections],
   )
 
+  const grants = Form.useWatch(['aiSetting', 'grants'], form) as Record<string, string[]> | undefined
+  const grantCount = (k: SectionKey) => (grants?.[k]?.length ? `${grants[k].length} 个能力` : '')
+
   if (isLoading || !recipe) {
     return <Card><Skeleton active paragraph={{ rows: 8 }} /></Card>
   }
 
   return (
-    <div style={{ maxWidth: 1180 }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18, gap: 12 }}>
         <Button
           type="text"
@@ -220,53 +230,70 @@ export default function RecipeEditorPage() {
         />
       )}
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <Card style={{ width: 200, flexShrink: 0 }} styles={{ body: { padding: 8 } }}>
-          {navItems.map((s) => (
-            <div
-              key={s.key}
-              onClick={() => setSection(s.key)}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 8,
-                cursor: 'pointer',
-                background: section === s.key ? '#eff4ff' : 'transparent',
-                color: section === s.key ? '#2563eb' : '#0f172a',
-                fontWeight: section === s.key ? 600 : 400,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {s.label}
-              <span style={{ marginLeft: 'auto' }}>
-                {s.hasError ? (
-                  <Badge count={<ExclamationCircleFilled style={{ color: '#dc2626' }} />} />
-                ) : (
-                  <CheckCircleFilled style={{ color: '#d1d5db', fontSize: 12 }} />
-                )}
-              </span>
+      <div style={{ display: 'grid', gridTemplateColumns: '184px minmax(0, 1fr) 340px', gap: 20, alignItems: 'start' }}>
+        <Card style={{ position: 'sticky', top: 72 }} styles={{ body: { padding: 8 } }}>
+          {navItems.map((s, i) => (
+            <div key={s.key}>
+              {/* 基本信息与三步之间留一道细线，不写分组名 */}
+              {s.group && !navItems[i - 1]?.group && (
+                <div style={{ borderTop: `1px solid ${brand.line}`, margin: '6px 12px' }} />
+              )}
+              <div
+                onClick={() => setSection(s.key)}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  background: section === s.key ? brand.inkSoft : 'transparent',
+                  color: section === s.key ? brand.ink : brand.text,
+                  fontWeight: section === s.key ? 600 : 400,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {s.label}
+                <span style={{ marginLeft: 'auto' }}>
+                  {s.hasError ? (
+                    <Badge count={<ExclamationCircleFilled style={{ color: '#C2412D' }} />} />
+                  ) : s.group ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>{grantCount(s.key)}</Typography.Text>
+                  ) : (
+                    <CheckCircleFilled style={{ color: '#d1d5db', fontSize: 12 }} />
+                  )}
+                </span>
+              </div>
             </div>
           ))}
         </Card>
 
-        <Card style={{ flex: 1, minWidth: 0 }}>
-          <Form form={form} layout="vertical" requiredMark scrollToFirstError>
-            {/* 用 display:none 而不是卸载——保持所有字段挂载，
-                这样 setFields 能标红当前没显示的段 */}
-            <div style={{ display: section === 'basic' ? 'block' : 'none' }}>
-              <BasicSection />
-            </div>
-            <div style={{ display: section === 'material' ? 'block' : 'none' }}>
-              <MaterialSection form={form} />
-            </div>
-            <div style={{ display: section === 'generation' ? 'block' : 'none' }}>
-              <GenerationSection form={form} spec={recipe.generationSpec} />
-            </div>
-            <div style={{ display: section === 'review' ? 'block' : 'none' }}>
-              <ReviewSection />
-            </div>
-          </Form>
-        </Card>
+        <Form form={form} layout="vertical" requiredMark scrollToFirstError>
+          {/* 用 display:none 而不是卸载——保持所有字段挂载，这样 setFields 能标红当前没显示的块 */}
+          <Card style={{ display: section === 'basic' ? 'block' : 'none' }}>
+            <BasicSection />
+          </Card>
+          <div style={{ display: section === 'retrieval' ? 'block' : 'none' }}>
+            <StageSection stage="retrieval" appType={recipe.appType} recipeName={recipe.name} appTypeName={recipe.appTypeName}>
+              <MaterialSection form={form} bare />
+            </StageSection>
+          </div>
+          <div style={{ display: section === 'generation' ? 'block' : 'none' }}>
+            <StageSection stage="generation" appType={recipe.appType} recipeName={recipe.name} appTypeName={recipe.appTypeName} />
+          </div>
+          <div style={{ display: section === 'review' ? 'block' : 'none' }}>
+            <StageSection stage="review" appType={recipe.appType} recipeName={recipe.name} appTypeName={recipe.appTypeName}>
+              <ReviewSection bare />
+            </StageSection>
+          </div>
+        </Form>
+
+        <div style={{ position: 'sticky', top: 72 }}>
+          <TrialCard
+            appId={appId}
+            recipeId={recipeId}
+            ready={recipe.status === 'ready'}
+            variables={findVariables(...Object.values(recipe.aiSetting?.prompts ?? {}))}
+          />
+        </div>
       </div>
     </div>
   )
@@ -277,36 +304,49 @@ function toFormValues(r: Recipe) {
     name: r.name,
     description: r.description,
     materialSpec: r.materialSpec,
-    generationSpec: r.generationSpec,
     reviewPolicy: r.reviewPolicy,
+    aiSetting: r.aiSetting,
   }
 }
 
-/**
- * 全量提交。**只提交后端该类型确实有的字段**——
- * generationSpec 以详情响应的 key 为准，用户没改的照原样带回去。
- * 夹带别的类型的字段服务端会忽略，但没必要发。
- */
+/** 全量提交：状态、类型、系统管理字段不在其中。 */
 function toPayload(
   values: Record<string, unknown>,
   recipe: Recipe | undefined,
 ): UpdateRecipeRequest {
-  const gen = (values.generationSpec ?? {}) as Record<string, unknown>
-  const allowed = recipe ? Object.keys(recipe.generationSpec) : Object.keys(gen)
-  const trimmedGen: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (key in gen) trimmedGen[key] = gen[key]
-  }
-  // 自定义配套字段是用户新填的，详情响应里可能没有这个 key
-  for (const key of ['customSections', 'customTone', 'customVisualStyle', 'customFreshness']) {
-    if (key in gen && !(key in trimmedGen)) trimmedGen[key] = gen[key]
-  }
-
   return {
     name: String(values.name ?? ''),
     description: String(values.description ?? ''),
     materialSpec: values.materialSpec as UpdateRecipeRequest['materialSpec'],
-    generationSpec: trimmedGen as unknown as UpdateRecipeRequest['generationSpec'],
     reviewPolicy: values.reviewPolicy as UpdateRecipeRequest['reviewPolicy'],
+    aiSetting: toAiSetting(values.aiSetting, recipe),
+  }
+}
+
+/** AI 装配原样提交；三个阶段的清单缺省补成空数组，没选 Agent 是空串（= 平台自带）。 */
+function toAiSetting(v: unknown, recipe: Recipe | undefined): UpdateRecipeRequest['aiSetting'] {
+  const a = (v ?? recipe?.aiSetting) as Recipe['aiSetting'] | undefined
+  if (!a) return undefined
+  return {
+    agents: {
+      retrieval: a.agents?.retrieval ?? '',
+      generation: a.agents?.generation ?? '',
+      review: a.agents?.review ?? '',
+    },
+    grants: {
+      retrieval: a.grants?.retrieval ?? [],
+      generation: a.grants?.generation ?? [],
+      review: a.grants?.review ?? [],
+    },
+    prompts: {
+      retrieval: a.prompts?.retrieval ?? '',
+      generation: a.prompts?.generation ?? '',
+      review: a.prompts?.review ?? '',
+    },
+    actions: {
+      retrieval: a.actions?.retrieval ?? {},
+      generation: a.actions?.generation ?? {},
+      review: a.actions?.review ?? {},
+    },
   }
 }

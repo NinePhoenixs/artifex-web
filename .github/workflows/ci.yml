@@ -1,11 +1,10 @@
-# 日常检查：每次推送和 PR 都跑。不发版。
+# 开 PR 时检查；合并到 main 时由发版流程先调用它，检查过了才部署。
 name: 检查
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_call: {}
 
 jobs:
   check:
@@ -27,6 +26,9 @@ jobs:
 
       - name: 类型检查
         run: pnpm typecheck
+
+      - name: 代码检查
+        run: pnpm lint
 
       - name: 测试
         run: pnpm test

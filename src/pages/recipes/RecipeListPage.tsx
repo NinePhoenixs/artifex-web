@@ -11,9 +11,9 @@ import { formatTime } from '@/pages/apps/AppListPage'
 import PickSystemRecipeModal from './PickSystemRecipeModal'
 
 /**
- * 应用配方列表。表格形态（取产品经理那份原型）。
+ * 应用配方列表，表格形态。
  *
- * 与原型的差异（见 docs/设计方案.md §6.1）：
+ * 约定（见 docs/设计方案.md §6.1）：
  * - 状态不是「启用/停用」，而是**草稿 / 就绪 / 使用中**
  * - 没有【停用】按钮——后端没有这个动作
  * - 没有「来源」列——列表接口不返回 systemRecipeId
@@ -58,15 +58,14 @@ export default function RecipeListPage() {
             应用配方
           </Typography.Title>
           <Typography.Text type="secondary">
-            配方 = 一种内容做法。选一个用，也可以改，或从模板再建一个。
+            配方规定 AI 怎么找资料、怎么写、怎么检查。应用按「使用中」的那份生产。
           </Typography.Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          style={{ marginLeft: 'auto' }}
-          onClick={() => setPickOpen(true)}
-        >
+        {/* 对比试产是内部验证工具，只放一个不抢眼的文字入口 */}
+        <Button type="link" style={{ marginLeft: 'auto' }} onClick={() => navigate(`/apps/${appId}/recipes/compare`)}>
+          对比试产
+        </Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setPickOpen(true)}>
           创建配方
         </Button>
       </div>
@@ -144,7 +143,7 @@ export default function RecipeListPage() {
       />
 
       <Typography.Paragraph type="secondary" style={{ fontSize: 12.5, marginTop: 14 }}>
-        配方没有「停用」——用不用由应用当前选中哪一份表达。MVP 暂不提供删除。
+        同一时间只有一份配方在用，点「使用它」切换。删除功能敬请期待。
       </Typography.Paragraph>
 
       <PickSystemRecipeModal

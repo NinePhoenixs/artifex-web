@@ -1,93 +1,79 @@
-# 自动发版：build 镜像 → 推 ghcr → SSH 让服务器拉新镜像重启。
-# 与后端 artifex-core 的流程完全一致，前后端各自独立发版、互不阻塞。
+# 自动发版：检查 → 构建镜像（存一份到 ghcr）→ 打成发版包 → 用部署钥匙传给服务器 /opt/artifex/deploy.sh。
+# 触发：合并到 main 自动上线；打 v 开头的 tag 也会上线；也可在 Actions 页面手动 Run。
+# 镜像直接传过去，服务器不用连 ghcr（国内拉私有镜像慢、也走不了加速）。
+# 服务器那边失败会自动回退到上一个版本，这里标红并带日志。
 #
-# 触发：打 v 开头的版本 tag（如 v0.0.1）。合并到 main 不发版，只攒代码。
-# 回退：每个版本的镜像都带版本号留在 ghcr，把 compose 里的 :latest 改成
-#      要回退的 tag 再重启即可。
+# 需要的 Secrets（服务器准备见后端仓库 docs/部署发版指南.md）：
+#   DEPLOY_HOST          服务器 IP
+#   DEPLOY_SSH_KEY       部署专用私钥（服务器上只允许它运行 deploy.sh）
+#   DEPLOY_KNOWN_HOSTS   服务器主机指纹（ssh-keyscan 的输出），防止连错机器
 name: 构建并部署
 
 on:
-  workflow_dispatch: {}        # Actions 页面手动点 Run（兜底 / 紧急发版）
+  workflow_dispatch: {}
   push:
+    branches: [ main ]
     tags: [ 'v*' ]
 
+# 同一时间只跑一次发版，后合并的排队
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
   build-and-deploy:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write          # 允许推镜像到 ghcr
+      packages: write
 
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
 
+      - name: 算版本号
+        id: v
+        # main：sha-提交号；版本 tag：版本号
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then v="${{ github.ref_name }}"; else v="sha-${GITHUB_SHA::7}"; fi
+          echo "tag=$v" >> "$GITHUB_OUTPUT"
+
       - name: 准备 Buildx（启用构建缓存）
         uses: docker/setup-buildx-action@v3
 
-      - name: 登录 ghcr 镜像仓库
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}   # GitHub 自动提供，不用手动配
-
-      - name: 构建并推送镜像
+      - name: 构建镜像
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deployments/Dockerfile
-          push: true
-          # 同时打版本号和 latest：版本号镜像永久留存便于回退，latest 指向最新
-          tags: |
-            ghcr.io/ninephoenixs/artifex-web:${{ github.ref_name }}
-            ghcr.io/ninephoenixs/artifex-web:latest
+          load: true
+          tags: artifex-web:${{ steps.v.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: SSH 到服务器，拉新镜像并重启
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          # 任何一条命令失败就中断并让整个 job 失败。
-          # 不加这个的话，脚本最后一条 prune 成功就会把前面的错误吞掉——
-          # 流水线报绿灯，容器其实压根没起来。
-          script_stop: true
-          script: |
-            set -euo pipefail
+      - name: 存一份到 ghcr（留档，找旧版本用）
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          for t in ${{ steps.v.outputs.tag }} latest; do
+            docker tag artifex-web:${{ steps.v.outputs.tag }} ghcr.io/ninephoenixs/artifex-web:$t
+            docker push -q ghcr.io/ninephoenixs/artifex-web:$t
+          done
 
-            # 凭据存本项目专属目录，不用默认的 /root/.docker。
-            #
-            # docker login 的凭据默认是**机器级**的：/root/.docker/config.json
-            # 里每个 registry 只有一个槽位。这台服务器同时跑着前端和后端，
-            # 两边各自 login 会互相覆盖——谁后发版谁把对方的凭据顶掉，
-            # 于是两个项目都拉不动镜像。GitHub 上仓库是隔离的，服务器上不是。
-            #
-            # DOCKER_CONFIG 指定凭据目录，各存各的即可互不干扰。
-            # 后端 artifex-core 需同样加上，指向 /opt/artifex/.docker-core。
-            export DOCKER_CONFIG=/opt/artifex/.docker-web
-            mkdir -p "$DOCKER_CONFIG"
+      - name: 打发版包
+        run: |
+          mkdir bundle
+          docker save artifex-web:${{ steps.v.outputs.tag }} | gzip -1 > bundle/image.tar.gz
+          tar -czf bundle.tgz -C bundle .
+          ls -lh bundle.tgz
 
-            cd /opt/artifex
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.web.yaml pull
-            docker compose -f docker-compose.web.yaml up -d
-            docker image prune -f
-
-      - name: 确认容器真的起来了
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          script_stop: true
-          script: |
-            set -euo pipefail
-            # 给容器几秒钟起 nginx
-            sleep 5
-            docker ps --filter name=artifex-web --filter status=running --format '{{.Names}}' | grep -q artifex-web
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:18082/)
-            echo "容器内首页返回 HTTP $code"
-            [ "$code" = "200" ]
+      - name: 传到服务器并部署
+        run: |
+          install -m 600 /dev/null key && echo "${{ secrets.DEPLOY_SSH_KEY }}" > key
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > known_hosts
+          ssh -i key -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            deploy@${{ secrets.DEPLOY_HOST }} web < bundle.tgz
+          rm -f key
