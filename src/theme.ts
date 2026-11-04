@@ -1,13 +1,26 @@
 import type { ThemeConfig } from 'antd'
 
-/** 对齐产品原型的视觉：深蓝主色、较大圆角、克制的灰阶。 */
+/**
+ * 稿谱品牌：稿纸白打底、墨谱蓝唯一强调色、音符金只用在标志上。
+ */
+export const brand = {
+  paper: '#F6F4EF',
+  ink: '#2C4E92',
+  inkSoft: '#EDF1F8',
+  gold: '#D4A63A',
+  line: '#E7E3DA',
+  text: '#1D1D1F',
+}
+
 export const theme: ThemeConfig = {
   token: {
-    colorPrimary: '#2563eb',
-    colorInfo: '#2563eb',
-    colorSuccess: '#16a34a',
-    colorError: '#dc2626',
-    colorTextBase: '#0f172a',
+    colorPrimary: brand.ink,
+    colorInfo: brand.ink,
+    colorLink: brand.ink,
+    colorSuccess: '#2E7D4F',
+    colorError: '#C2412D',
+    colorTextBase: brand.text,
+    colorBorderSecondary: brand.line,
     borderRadius: 8,
     fontSize: 14,
     fontFamily:
@@ -15,17 +28,17 @@ export const theme: ThemeConfig = {
   },
   components: {
     Layout: {
-      headerBg: '#ffffff',
+      headerBg: '#FFFFFF',
       headerHeight: 56,
-      siderBg: '#ffffff',
-      bodyBg: '#f5f7fa',
+      siderBg: '#FFFFFF',
+      bodyBg: brand.paper,
     },
     Menu: {
       itemBorderRadius: 8,
-      itemSelectedBg: '#eff4ff',
-      itemSelectedColor: '#2563eb',
+      itemSelectedBg: brand.inkSoft,
+      itemSelectedColor: brand.ink,
     },
     Card: { borderRadiusLG: 12 },
-    Table: { headerBg: '#fafbfc' },
+    Table: { headerBg: '#FAF9F6', rowHoverBg: '#FAF9F6' },
   },
 }

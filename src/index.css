@@ -10,7 +10,7 @@ body,
 }
 
 body {
-  background: #f5f7fa;
+  background: #F6F4EF;
   color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
     'Segoe UI', sans-serif;
@@ -21,3 +21,31 @@ body {
   font-size: 12px;
   color: #94a3b8;
 }
+
+/* 配方提示词板：输入框垫在高亮层上面，两层排版必须一字不差（见 StageSection PromptBoard） */
+.prompt-board { position: relative; margin-bottom: 10px; }
+.prompt-board-backdrop,
+.prompt-board-input textarea {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  letter-spacing: normal !important;
+  padding: 8px 10px !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.prompt-board-backdrop {
+  position: absolute; inset: 1px; overflow: hidden;
+  color: rgba(0, 0, 0, .88); border-radius: 9px; background: #fff; pointer-events: none;
+}
+.prompt-board-input { position: relative; }
+.prompt-board-input textarea {
+  color: transparent !important; caret-color: rgba(0, 0, 0, .88); background: transparent !important;
+}
+.prompt-board-input textarea::placeholder { color: rgba(0, 0, 0, .25); }
+.prompt-board-input textarea::selection { background: rgba(42, 120, 214, .25); }
+.prompt-mention { border-radius: 4px; box-shadow: 0 0 0 2px var(--m-bg); background: var(--m-bg); color: var(--m-tx); padding: 0; }
+.prompt-mention.tool { --m-bg: #e8f1fb; --m-tx: #1d5aa6; }
+.prompt-mention.skill { --m-bg: #e7f6ef; --m-tx: #0f7a52; }
+.prompt-mention.missing { --m-bg: #fdf0e9; --m-tx: #b4501f; }
