@@ -15,21 +15,21 @@ export const MOCK_SYSTEM_RECIPES: SystemRecipe[] = [
     systemRecipeId: 'system_recipe_deep_article',
     name: '深度科普长文',
     description: '把一个复杂主题讲透，建立专业形象。资料要求严格，篇幅长',
-    features: ['可调整资料获取方式和来源范围', '可调整受众、结构、篇幅和表达风格', '自动完成资料与成品质量评审'],
+    features: ['找资料、写、检查三步各有一段提示词，可直接改', '可在提示词里 @ 点名技能和工具', '检查不通过时 AI 自动返修'],
     available: true,
   },
   {
     systemRecipeId: 'system_recipe_quick_note',
     name: '快速种草短文',
     description: '追热点、日更场景。篇幅短、语气亲切，出稿快',
-    features: ['可调整资料获取方式和来源范围', '可调整受众、结构、篇幅和表达风格', '自动完成资料与成品质量评审'],
+    features: ['找资料、写、检查三步各有一段提示词，可直接改', '可在提示词里 @ 点名技能和工具', '检查不通过时 AI 自动返修'],
     available: true,
   },
   {
     systemRecipeId: 'system_recipe_hot_take',
     name: '热点观点评论',
     description: '对行业事件给出立场与依据。只用近期资料，语气客观中立',
-    features: ['可调整资料获取方式和来源范围', '可调整受众、结构、篇幅和表达风格', '自动完成资料与成品质量评审'],
+    features: ['找资料、写、检查三步各有一段提示词，可直接改', '可在提示词里 @ 点名技能和工具', '检查不通过时 AI 自动返修'],
     available: true,
   },
 ]
@@ -63,6 +63,17 @@ export function seedApps(): App[] {
   ]
 }
 
+const MOCK_GENERATION_PROMPT = `围绕「{{主题}}」写一篇图文。
+
+目标与读者
+写给想系统了解这个主题的读者，读完能自己复述。
+
+写作要求
+语气专业严谨，正文约 2000 字，按「问题—分析—方案」展开。
+
+不要做的事
+· 不编造数据和案例，资料里没有的就不写`
+
 function recipeFrom(
   appId: string,
   recipeId: string,
@@ -86,21 +97,13 @@ function recipeFrom(
       customFreshness: null,
       maxSearchRounds: 3,
     },
-    // 图文类：没有 durationSec / shotCount / slideCount / hostCount
-    generationSpec: {
-      targetAudience: '希望系统了解该主题的专业读者',
-      creationGoal: '把一个复杂主题讲透，让读者读完能自己复述',
-      tone: 'professional',
-      customTone: null,
-      titlePreference: null,
-      narrativePerspective: null,
-      mustInclude: [],
-      forbiddenContent: [],
-      targetWordCount: 2000,
-      contentStructure: 'problem_analysis_solution',
-      visualStyle: 'infographic',
-    },
     reviewPolicy: { autoRevisionCount: 1 },
+    aiSetting: {
+      agents: { retrieval: '', generation: '', review: '' },
+      grants: { retrieval: ['web_search'], generation: ['xhs_writing'], review: [] },
+      prompts: { retrieval: '', generation: MOCK_GENERATION_PROMPT, review: '' },
+      actions: { retrieval: {}, generation: {}, review: {} },
+    },
     createdAt: T,
     updatedAt: T,
     ...overrides,
@@ -118,20 +121,13 @@ export function seedRecipes(): Recipe[] {
   out.push(
     recipeFrom('mock-app-1', 'mock-recipe-1-4', MOCK_SYSTEM_RECIPES[1], {
       name: '待补全的测试配方',
-      description: '缺目标受众和创作目标，点「保存并启用」会一次标红两项',
+      description: '「写」还没写提示词，点「保存并启用」会标红',
       status: 'draft',
-      generationSpec: {
-        targetAudience: '',
-        creationGoal: '',
-        tone: 'friendly',
-        customTone: null,
-        titlePreference: null,
-        narrativePerspective: null,
-        mustInclude: [],
-        forbiddenContent: [],
-        targetWordCount: 800,
-        contentStructure: 'list',
-        visualStyle: 'fresh',
+      aiSetting: {
+        agents: { retrieval: '', generation: '', review: '' },
+        grants: { retrieval: [], generation: [], review: [] },
+        prompts: { retrieval: '', generation: '', review: '' },
+        actions: { retrieval: {}, generation: {}, review: {} },
       },
     }),
   )

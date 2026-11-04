@@ -11,4 +11,15 @@ export const qk = {
   systemRecipes: (appId: string) => ['systemRecipes', appId] as const,
   recipes: (appId: string) => ['recipes', appId] as const,
   recipe: (appId: string, recipeId: string) => ['recipe', appId, recipeId] as const,
+  /** 能力列表按筛选条件分缓存；登记 / 修改后整组失效 */
+  capabilities: (q: object = {}) => ['capabilities', q] as const,
+  capability: (id: string) => ['capability', id] as const,
+  providers: () => ['ai-providers'] as const,
+  remoteModels: (providerId: string) => ['ai-providers', providerId, 'remote-models'] as const,
+  agents: () => ['agents'] as const,
+  agent: (id: string) => ['agent', id] as const,
+  skillTemplates: () => ['skill-templates'] as const,
+  aiRuns: (bizId: string) => ['ai-runs', bizId] as const,
+  job: (jobId: string) => ['job', jobId] as const,
+  jobs: (q: object = {}) => ['jobs', q] as const,
 }

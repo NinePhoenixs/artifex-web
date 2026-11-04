@@ -26,16 +26,17 @@ function stubFetch(status: number, body: unknown) {
 
 describe('toNamePath', () => {
   it('把后端字段路径拆成 antd 的 namePath', () => {
-    expect(toNamePath('generationSpec.targetAudience')).toEqual([
-      'generationSpec',
-      'targetAudience',
+    expect(toNamePath('aiSetting.prompts.generation')).toEqual([
+      'aiSetting',
+      'prompts',
+      'generation',
     ])
   })
 
   it('数组下标转成 number', () => {
-    expect(toNamePath('generationSpec.customSections.0')).toEqual([
-      'generationSpec',
-      'customSections',
+    expect(toNamePath('materialSpec.allowedSources.0')).toEqual([
+      'materialSpec',
+      'allowedSources',
       0,
     ])
   })
@@ -56,8 +57,8 @@ describe('ApiError 分类', () => {
       code: 'RECIPE_VALIDATION_FAILED',
       message: '配方仍有必要配置未完成',
       errors: [
-        { field: 'generationSpec.targetAudience', message: '请填写目标受众' },
-        { field: 'generationSpec.creationGoal', message: '请填写创作目标' },
+        { field: 'aiSetting.prompts.generation', message: '请写「写」这一步的提示词' },
+        { field: 'materialSpec.customFreshness', message: '请填写自定义天数' },
       ],
     })
     const err = await api.post<never>('/v1/x/ready').catch((e) => e as ApiError)
@@ -96,17 +97,6 @@ describe('后端没启动时回落演示数据', () => {
     expect(first).not.toHaveProperty('app') // 嵌套的话这里会有 app
   })
 
-  it('图文配方不含视频/音频/演示类的专有字段', async () => {
-    stubFetchThrows()
-    const r = await api.get<{ generationSpec: Record<string, unknown> }>(
-      '/v1/apps/mock-app-1/recipes/mock-recipe-1-1',
-    )
-    expect(r.generationSpec).toHaveProperty('targetWordCount')
-    for (const k of ['durationSec', 'shotCount', 'slideCount', 'hostCount']) {
-      expect(r.generationSpec).not.toHaveProperty(k)
-    }
-  })
-
   it('转就绪缺必填项时，一次返回全部缺失字段', async () => {
     stubFetchThrows()
     const err = await api
@@ -114,8 +104,7 @@ describe('后端没启动时回落演示数据', () => {
       .catch((e) => e as ApiError)
     expect(err.status).toBe(422)
     const fields = err.errors?.map((e) => e.field) ?? []
-    expect(fields).toContain('generationSpec.targetAudience')
-    expect(fields).toContain('generationSpec.creationGoal')
+    expect(fields).toContain('aiSetting.prompts.generation')
   })
 
   it('草稿配方不能被选中', async () => {
