@@ -100,9 +100,12 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
   const submit = (v: FormValues) => {
     // 已挑过的 MCP 动作原样保留；新勾的默认全部动作
     const prev = new Map((agent?.capabilities ?? []).map((c) => [c.capabilityId, c.actions]))
+    // 参谋的表单不显示「常用在哪一步」和「自带能力」，这两项沿用原值
+    const capIds = v.capabilities ?? agent?.capabilities.map((c) => c.capabilityId) ?? []
     save.mutate({
-      name: v.name, description: v.description, modelId: v.modelId, recommendStage: v.recommendStage, rolePrompt: v.rolePrompt,
-      capabilities: v.capabilities.map((id) => ({ capabilityId: id, actions: prev.get(id) ?? [] })),
+      name: v.name, description: v.description, modelId: v.modelId, rolePrompt: v.rolePrompt,
+      recommendStage: v.recommendStage ?? agent?.recommendStage ?? '',
+      capabilities: capIds.map((id) => ({ capabilityId: id, actions: prev.get(id) ?? [] })),
       maxLlmCalls: v.maxLlmCalls ?? 0, costCapCent: v.costCapYuan ? Math.round(v.costCapYuan * 100) : 0,
     })
   }
