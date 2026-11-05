@@ -8,21 +8,23 @@ import { useEnums } from '@/hooks/useEnums'
 import { useJobWatch } from '@/hooks/useJobWatch'
 import CrewProgress from './crew/CrewProgress'
 import { revisionCount } from './crew/derive'
-import { JOB_STATUS } from './jobStatus'
+import { DONE, JOB_STATUS } from './jobStatus'
 import { secondsText } from './usage'
 import ArticlePreview from './preview/ArticlePreview'
 import NotePreview from './preview/NotePreview'
 import ResultSide from './preview/ResultSide'
+import RunningPane from './preview/RunningPane'
 import { pickLayout, previewContent } from './preview/content'
 import './preview/preview.css'
 
 /** 生产详情：头部是成品标题，下面一排角色演生产过程，再往下左边成品预览、右边拿去用和过程。试产与生产记录共用。 */
 export function JobDrawer({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
   const { job, runs } = useJobWatch(jobId)
-  // 「生产过程」展开没有，跟着任务走：换一个任务重新收起
-  const [processFor, setProcessFor] = useState<string | null>(null)
-  const processOpen = processFor !== null && processFor === jobId
-  const setProcessOpen = (open: boolean) => setProcessFor(open ? jobId : null)
+  // 「生产过程」展开没有：还在生产时默认展开，做完默认收起；人点过就按人的来（只对当前这个任务）
+  const [processPref, setProcessPref] = useState<{ jobId: string | null; open: boolean } | null>(null)
+  const running = Boolean(job && !DONE.includes(job.status))
+  const processOpen = processPref?.jobId === jobId ? processPref.open : running
+  const setProcessOpen = (open: boolean) => setProcessPref({ jobId, open })
   const sideRef = useRef<HTMLDivElement>(null)
   const c = previewContent(job)
 
@@ -38,19 +40,19 @@ export function JobDrawer({ jobId, onClose }: { jobId: string | null; onClose: (
       size={1120}
       title={job ? <JobHeader job={job} title={c?.title} /> : '生产详情'}
       destroyOnHidden
-      styles={{ body: { padding: 0 } }}
+      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
     >
       {!job ? (
         <div style={{ padding: 24 }}><Skeleton active paragraph={{ rows: 6 }} /></div>
       ) : (
-        <div className="pv">
+        <div className="pv" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
           <div style={{ padding: '16px 24px 18px', borderBottom: '1px solid var(--line-2)' }}>
             <CrewProgress job={job} runs={runs} onShowProcess={showProcess} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', alignItems: 'start' }}>
-            <div style={{ background: 'var(--paper)', padding: '28px 32px 64px', minHeight: 560, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', alignItems: 'stretch' }}>
+            <div style={{ background: 'var(--paper)', padding: '28px 32px 64px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
               {c ? (c.layout === 'article' ? <ArticlePreview c={c} /> : <NotePreview c={c} />) : (
-                <div className="pv-empty">{job.status === 'failed' || job.status === 'skipped' ? '这次没有成稿' : '成稿写出来后在这里预览'}</div>
+                <RunningPane job={job} runs={runs} layout={pickLayout(job)} ended={!running} />
               )}
             </div>
             <div style={{ alignSelf: 'stretch', borderLeft: '1px solid var(--line-2)' }}>

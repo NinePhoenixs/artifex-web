@@ -75,7 +75,7 @@ export default function ResultSide({ job, runs, c, processOpen, onProcessToggle 
                   : s.status === 'failed' ? clip(friendlyError(s.errorMsg ?? '') || '没做成', 60)
                     : s.attempt > 1 ? `第 ${s.attempt} 次 · 完成` : '完成'
               return (
-                <li key={i} className={s.status === 'failed' && !revision ? 'bad' : ''}>
+                <li key={i} className={s.status === 'running' ? 'now' : s.status === 'failed' && !revision ? 'bad' : ''}>
                   <b>{crew}</b><span>{what}</span><span className="t">{s.status === 'running' ? '' : clock(s.costMs)}</span>
                 </li>
               )

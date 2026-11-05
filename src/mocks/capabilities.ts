@@ -1,4 +1,4 @@
-import type { AppType, Capability, CreateCapabilityRequest, UpdateCapabilityRequest } from '@/api/types'
+import type { AppType, Capability, CreateCapabilityRequest, McpToolInput, ToolSpec, UpdateCapabilityRequest } from '@/api/types'
 
 /** 演示数据不做真实扫描 */
 const NO_SCAN = { scripts: 0, blocked: false, findings: [] }
@@ -91,7 +91,7 @@ export function handleCapabilityMock(
       appTypes: b.appTypes ?? [], recommendStage: b.recommendStage,
       origin: 'enterprise', status: 'active',
       skill: b.skill ? { body: b.skill.body, version: 1, files: (b.skill.files ?? []).map((f) => ({ ...f, script: f.path.startsWith('scripts/') })), scan: NO_SCAN } : undefined,
-      tool: b.tool ? { provider: 'mcp', ...b.tool, timeoutMs: b.tool.timeoutMs ?? 15000, actions: DEMO_ACTIONS } : undefined,
+      tool: b.tool ? mockTool(b.tool, DEMO_ACTIONS) : undefined,
     }
     caps.push(c)
     return c
@@ -110,6 +110,12 @@ export function handleCapabilityMock(
     if (b.name) c.name = b.name
     if (b.summary) c.summary = b.summary
     if (b.appTypes) c.appTypes = b.appTypes
+    if (b.tool && c.tool) {
+      const { apiKey, ...rest } = b.tool
+      const keep = apiKey === undefined && c.tool.secretConfigured
+      c.tool = mockTool({ ...c.tool, ...rest, mcpUrl: rest.mcpUrl ?? c.tool.mcpUrl ?? '', authType: rest.authType ?? c.tool.authType ?? 'none', apiKey }, DEMO_ACTIONS)
+      if (keep && c.tool.authType !== 'none') c.tool = { ...c.tool, secretConfigured: true, secretHint: '****mock' }
+    }
     if (b.skill?.body !== undefined && c.skill && b.skill.body !== c.skill.body) {
       c.skill = { ...c.skill, body: b.skill.body, version: c.skill.version + 1 }
     }
@@ -117,4 +123,14 @@ export function handleCapabilityMock(
   }
 
   return undefined
+}
+
+/** 演示用：按登记 / 修改的接法造一份工具，密钥只记尾号，传输方式当作自动识别成 streamable。 */
+function mockTool(t: McpToolInput & { toolAllowlist?: string[] }, actions: ToolSpec['actions']): ToolSpec {
+  const { apiKey, ...rest } = t
+  const keyed = rest.authType !== 'none' && Boolean(apiKey)
+  return {
+    provider: 'mcp', ...rest, mcpTransport: 'streamable', timeoutMs: rest.timeoutMs ?? 15000, actions,
+    secretConfigured: keyed, secretHint: keyed ? `****${apiKey!.slice(-4)}` : undefined,
+  }
 }
