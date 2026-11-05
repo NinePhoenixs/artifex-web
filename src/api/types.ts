@@ -380,6 +380,20 @@ export type CapabilityStatus =
 export type CapabilityOrigin = 'platform' | 'enterprise'
 export type McpTransport = 'streamable' | 'sse'
 
+/** MCP 工具的鉴权方式：none 不需要 · bearer Authorization: Bearer 密钥 · header 自定义请求头 · query 地址里带参数 */
+export type McpAuthType = 'none' | 'bearer' | 'header' | 'query'
+
+/** 登记 / 修改 / 测试连接 MCP 工具时的接法。传输方式不传，由服务端自动识别 */
+export interface McpToolInput {
+  mcpUrl: string
+  authType: McpAuthType
+  /** header：请求头名，如 X-API-Key；query：参数名，如 api_key；其余忽略 */
+  authParam?: string
+  /** 密钥值。登记、测试连接时鉴权方式不是 none 就要填；修改时不传 = 不改，传空串 = 清除 */
+  apiKey?: string
+  timeoutMs?: number
+}
+
 export interface SkillContent {
   body: string
   version: number
@@ -415,10 +429,15 @@ export interface ScanReport {
 export interface ToolSpec {
   provider: 'builtin' | 'mcp'
   builtinKey?: string
+  /** 自动识别出的传输方式 */
   mcpTransport?: McpTransport
   mcpUrl?: string
-  /** 鉴权配置名，不是密钥本身 */
-  secretRef?: string
+  authType?: McpAuthType
+  authParam?: string
+  /** 密钥是否已保存（值不返回） */
+  secretConfigured?: boolean
+  /** 已保存密钥的尾号，如 ****abcd */
+  secretHint?: string
   toolAllowlist?: string[]
   timeoutMs?: number
   /** 接入时从 MCP 服务发现的动作，描述由服务自带（直接给 AI，不用人写） */
@@ -431,12 +450,7 @@ export interface ToolAction {
 }
 
 /** POST /v1/capabilities/discover：测试连接，不落库 */
-export interface DiscoverRequest {
-  mcpTransport: McpTransport
-  mcpUrl: string
-  secretRef?: string
-  timeoutMs?: number
-}
+export type DiscoverRequest = McpToolInput
 
 export interface Capability {
   capabilityId: string
@@ -476,13 +490,7 @@ export interface CreateCapabilityRequest {
   appTypes: AppType[]
   recommendStage?: StageName
   skill?: { body: string; files?: Pick<SkillFile, 'path' | 'content'>[] }
-  tool?: {
-    mcpTransport: McpTransport
-    mcpUrl: string
-    secretRef?: string
-    toolAllowlist?: string[]
-    timeoutMs?: number
-  }
+  tool?: McpToolInput & { toolAllowlist?: string[] }
 }
 
 /** 部分更新：不传 = 不改；appTypes / toolAllowlist 传 [] = 改成通用 / 开放全部动作 */
@@ -493,13 +501,7 @@ export interface UpdateCapabilityRequest {
   appTypes?: AppType[]
   recommendStage?: StageName | 'unspecified'
   skill?: { body?: string }
-  tool?: {
-    mcpTransport?: McpTransport
-    mcpUrl?: string
-    secretRef?: string
-    toolAllowlist?: string[]
-    timeoutMs?: number
-  }
+  tool?: Partial<McpToolInput> & { toolAllowlist?: string[] }
 }
 
 // ---------- 生产任务（试跑用）----------

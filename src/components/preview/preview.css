@@ -78,3 +78,30 @@
 .pv-steps .t { color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pv-steps li.bad span { color: var(--danger); }
 .pv-more { border: 0; background: none; padding: 0; margin-top: 4px; color: var(--ink); font-size: 12.5px; cursor: pointer; }
+
+/* ---------- 还没成稿：正在做什么 + 成品骨架 ---------- */
+.pv-running { width: 100%; max-width: 720px; display: grid; gap: 20px; justify-items: center; align-content: start; }
+.pv-activity { width: 100%; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px var(--line); padding: 16px 20px; }
+.pv-activity .head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+.pv-activity .live { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: pv-pulse 1.6s ease-in-out infinite; }
+@keyframes pv-pulse { 0%,100% { opacity: .35; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
+.pv-activity ol { margin: 0; padding: 0; list-style: none; }
+.pv-activity li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--text-2);
+  border-top: 1px solid var(--line-2); animation: pv-in .3s var(--ease); }
+.pv-activity li:first-child { border-top: 0; }
+.pv-activity li b { font-weight: 500; color: var(--text); }
+.pv-activity li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-activity li time { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pv-activity li.now span { color: var(--ink); }
+.pv-activity li.bad span { color: var(--danger); }
+.pv-activity .none, .pv-activity .more { margin: 4px 0 0; color: var(--text-3); font-size: 12.5px; }
+@keyframes pv-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pv-skel { opacity: .7; }
+.pv-skel i { display: block; height: 11px; margin: 0 0 12px; border-radius: 6px; background: linear-gradient(90deg, #EFECE5, #F6F4EF, #EFECE5);
+  background-size: 200% 100%; animation: pv-shine 1.8s ease-in-out infinite; }
+.pv-skel .top i { margin: 0; }
+.pv-phone.pv-skel .img { aspect-ratio: 3 / 4; background: var(--line-2); }
+.pv-article.pv-skel .img { aspect-ratio: 16 / 9; border-radius: 8px; background: var(--line-2); margin: 20px 0 24px; }
+@keyframes pv-shine { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.pv-steps li.now b, .pv-steps li.now span { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .pv-activity .live, .pv-activity li, .pv-skel i { animation: none; } }

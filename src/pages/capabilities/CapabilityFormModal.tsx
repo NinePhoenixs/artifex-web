@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { ApiOutlined, CheckCircleFilled } from '@ant-design/icons'
-import { Alert, App, Button, Form, Input, InputNumber, Modal, Segmented, Select, Steps, Tag, Typography } from 'antd'
+import { Alert, App, Button, Form, Input, Modal, Segmented, Select, Steps, Tag, Typography } from 'antd'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, toNamePath } from '@/api/client'
 import { createCapability, discoverTools } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { AppType, CreateCapabilityRequest, McpTransport, SkillFile, StageName, ToolAction } from '@/api/types'
+import type { AppType, CreateCapabilityRequest, SkillFile, StageName, ToolAction } from '@/api/types'
 import { STAGES } from '@/constants/capability'
 import { DESCRIPTION_MAX_LEN, NAME_MAX_LEN } from '@/constants/limits'
 import { useApiError } from '@/hooks/useApiError'
@@ -14,20 +14,18 @@ import { brand } from '@/theme'
 import MarkdownView from '@/components/MarkdownView'
 import SkillStarter, { type StartResult } from './SkillStarter'
 import SkillPackage from './SkillPackage'
+import McpConnectFields from './McpConnectFields'
+import { DEFAULT_TIMEOUT_SEC, toToolInput, type McpFormValues } from './mcpForm'
 
 type Kind = CreateCapabilityRequest['kind']
 
-interface FormValues {
+interface FormValues extends McpFormValues {
   kind: Kind
   name: string
   summary?: string
   appTypes: AppType[]
   recommendStage?: StageName
   skillBody?: string
-  mcpTransport?: McpTransport
-  mcpUrl?: string
-  secretRef?: string
-  timeoutMs?: number
 }
 
 /** 接入 MCP 工具的三步。没有「给 AI 的说明」——MCP 服务里每个动作自带描述，AI 连上就看得到。 */
@@ -61,13 +59,7 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
   }
 
   const discover = useMutation({
-    mutationFn: (v: FormValues) =>
-      discoverTools({
-        mcpTransport: v.mcpTransport ?? 'streamable',
-        mcpUrl: (v.mcpUrl ?? '').trim(),
-        secretRef: v.secretRef?.trim() || undefined,
-        timeoutMs: v.timeoutMs,
-      }),
+    mutationFn: (v: FormValues) => discoverTools(toToolInput(v)),
     onSuccess: (r) => {
       setActions(r.actions)
       setStep(1)
@@ -106,7 +98,7 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
     setSkillStart(r)
   }
 
-  const connectFields = ['name', 'mcpTransport', 'mcpUrl', 'secretRef', 'timeoutMs']
+  const connectFields = ['name', 'mcpUrl', 'authType', 'authParam', 'apiKey', 'timeoutSec']
   const testConnection = () =>
     form.validateFields(connectFields).then(() => discover.mutate(form.getFieldsValue(true)))
   const submit = () => form.validateFields().then(() => create.mutate(form.getFieldsValue(true)))
@@ -143,7 +135,7 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
         form={form}
         layout="vertical"
         preserve
-        initialValues={{ kind: 'skill', appTypes: [], mcpTransport: 'streamable', timeoutMs: 15000 }}
+        initialValues={{ kind: 'skill', appTypes: [], authType: 'none', timeoutSec: DEFAULT_TIMEOUT_SEC }}
       >
         <Form.Item name="kind" style={{ marginBottom: 16 }}>
           <Segmented
@@ -216,31 +208,12 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
                 type="info"
                 showIcon
                 style={{ marginBottom: 16 }}
-                title="填上 MCP 服务的地址，连上后会自动列出它能做的事，不用自己写说明。"
+                title="填上 MCP 服务的地址和密钥，连上后会自动列出它能做的事，不用自己写说明。"
               />
               <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请填写名称' }, { max: NAME_MAX_LEN }]}>
                 <Input placeholder="如：商品库" />
               </Form.Item>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16 }}>
-                <Form.Item name="mcpTransport" label="传输方式">
-                  <Select options={[{ value: 'streamable', label: 'streamable' }, { value: 'sse', label: 'sse' }]} />
-                </Form.Item>
-                <Form.Item
-                  name="mcpUrl"
-                  label="服务地址"
-                  rules={[{ required: true, whitespace: true, message: '请填写服务地址' }, { type: 'url', message: '地址格式不对' }]}
-                >
-                  <Input placeholder="https://mcp.example.com/products" />
-                </Form.Item>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 16 }}>
-                <Form.Item name="secretRef" label="密钥名" extra="密钥配在服务器上，这里只填名字；不需要密钥就留空">
-                  <Input placeholder="如：PRODUCT_MCP_TOKEN" />
-                </Form.Item>
-                <Form.Item name="timeoutMs" label="超时（毫秒）">
-                  <InputNumber min={1} step={1000} style={{ width: '100%' }} />
-                </Form.Item>
-              </div>
+              <McpConnectFields />
             </div>
 
             {step === 1 && (
@@ -316,19 +289,14 @@ function toRequest(v: FormValues, files?: SkillFile[]): CreateCapabilityRequest 
   }
   return {
     ...base,
-    tool: {
-      mcpTransport: v.mcpTransport ?? 'streamable',
-      mcpUrl: (v.mcpUrl ?? '').trim(),
-      secretRef: v.secretRef?.trim() || undefined,
-      toolAllowlist: [],
-      timeoutMs: v.timeoutMs,
-    },
+    tool: { ...toToolInput(v), toolAllowlist: [] },
   }
 }
 
-/** 后端字段路径 → 表单项名：skill.body → skillBody，tool.mcpUrl → mcpUrl，其余原样。 */
-function toFormName(field: string): (string | number)[] {
+/** 后端字段路径 → 表单项名：skill.body → skillBody，tool.mcpUrl → mcpUrl，tool.timeoutMs → timeoutSec，其余原样。 */
+export function toFormName(field: string): (string | number)[] {
   if (field === 'skill.body') return ['skillBody']
+  if (field === 'tool.timeoutMs') return ['timeoutSec']
   if (field.startsWith('tool.')) return [field.slice('tool.'.length)]
   return toNamePath(field)
 }
