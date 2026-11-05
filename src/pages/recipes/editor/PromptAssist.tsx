@@ -7,20 +7,20 @@ import { Alert, Button, Form, Input, Modal, Spin, Typography } from 'antd'
 import { useMutation, type UseMutationResult } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import { promptAssist } from '@/api/endpoints'
-import type { PromptAssistResponse, PromptFinding, Stage } from '@/api/types'
+import type { PromptAssistResponse, PromptFinding, StageName } from '@/api/types'
 import { brand } from '@/theme'
 
 const WAIT_HINT = '一般要 10 秒到 1 分钟。可以先关掉这个窗口，写好了按钮上会提示'
 
 /** 想法的示例：点一下就填进去，告诉运营「一句话」可以写到多具体。 */
-const IDEAS: Record<Stage, string[]> = {
+const IDEAS: Record<StageName, string[]> = {
   retrieval: ['只找近 30 天的新闻和官方公告，不要论坛帖子', '先查商品库里这款商品的参数，再找真实用户评价'],
   generation: ['写给第一次露营的年轻人，口吻像朋友推荐，600 字左右', '写成清单式测评，每一条都要有具体参数'],
   review: ['逐条核对价格、尺寸是否和商品资料一致', '检查有没有广告法禁用词和绝对化用语'],
 }
 
 interface Props {
-  stage: Stage
+  stage: StageName
   recipeName: string
   appTypeName: string
 }
@@ -138,7 +138,7 @@ function AssistModal({
   mode, stage, run, current, idea, onIdea, draft, onDraft, onClose, onDiscard, onUse,
 }: {
   mode: Mode
-  stage: Stage
+  stage: StageName
   run: Run
   /** 现在提示词板上的内容 */
   current: string
@@ -261,7 +261,7 @@ function ResultBoard({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 const LEVEL = {
-  error: { icon: <ExclamationCircleFilled />, color: '#C2412D', label: '要改' },
+  error: { icon: <ExclamationCircleFilled />, color: brand.danger, label: '要改' },
   warn: { icon: <WarningFilled />, color: '#B7791F', label: '建议改' },
   tip: { icon: <InfoCircleFilled />, color: brand.ink, label: '可以更好' },
 } as const

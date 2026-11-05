@@ -5,14 +5,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import { draftSkill, importSkill, listSkillTemplates } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { ScanReport, SkillDraft, SkillFile, Stage } from '@/api/types'
+import type { ScanReport, SkillDraft, SkillFile, StageName } from '@/api/types'
 import { stageLabel } from '@/constants/capability'
 import { useApiError } from '@/hooks/useApiError'
 import { brand } from '@/theme'
 
 export interface StartResult {
   draft: SkillDraft
-  recommendStage?: Stage
+  recommendStage?: StageName
   warnings: string[]
   /** 从哪来的，编辑页顶部提示用 */
   source: string

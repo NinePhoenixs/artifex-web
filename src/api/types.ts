@@ -97,6 +97,19 @@ export interface ReviewPolicy {
   autoRevisionCount: number
 }
 
+export type ImageRatio = '3:4' | '1:1' | '4:3' | '16:9' | '9:16'
+
+/** 版式：成品做成什么样子。note 小红书笔记（图在上、字在下）/ article 文章（图插在正文里） */
+export type Layout = 'note' | 'article'
+
+/** 「配图」这一步：检查通过后按成稿出图，第一张当封面。画什么风格写在 aiSetting.prompts.illustration */
+export interface IllustrationSetting {
+  enabled: boolean
+  /** 1~9 */
+  imageCount: number
+  imageRatio: ImageRatio
+}
+
 export interface Recipe {
   recipeId: string
   appId: string
@@ -108,6 +121,9 @@ export interface Recipe {
   description: string
   materialSpec: MaterialSpec
   reviewPolicy: ReviewPolicy
+  illustration: IllustrationSetting
+  /** 版式；老配方没有时按小红书笔记 */
+  layout?: Layout
   aiSetting: AiSetting
   createdAt: string
   updatedAt: string
@@ -119,6 +135,10 @@ export interface UpdateRecipeRequest {
   description: string
   materialSpec: MaterialSpec
   reviewPolicy: ReviewPolicy
+  /** 不传 = 不改配图设置 */
+  illustration?: IllustrationSetting
+  /** 不传 = 不改版式 */
+  layout?: Layout
   /** 不传 = 不改 AI 装配 */
   aiSetting?: AiSetting
 }
@@ -133,16 +153,16 @@ export interface StageGrants {
 }
 
 export interface AiSetting {
-  /** 每一步由哪个 Agent 做；空串 = 平台自带（采风 / 执笔 / 校审） */
+  /** 每一步由哪个 Agent 做；空串 = 平台自带（采风 / 执笔 / 校审 / 画师） */
   agents: StagePrompts
-  /** 每一步在 Agent 之外额外带的能力 */
+  /** 每一步在 Agent 之外额外带的能力（配图不带能力） */
   grants: StageGrants
   /** 每一步的任务要求；空串 = 没写；「写」必须有，可用 {{主题}} 代表每次生产时填的主题 */
   prompts: StagePrompts
   /** 每一步给 MCP 工具挑的动作：能力编号 → 动作名；没出现 = 该工具全部动作可用 */
   actions: StageActions
   /** 只读：每一步实际由谁完成（配方详情接口给，保存时不传） */
-  effectiveAgents?: Record<keyof StageGrants, EffectiveAgent>
+  effectiveAgents?: Record<keyof StagePrompts, EffectiveAgent>
 }
 
 export interface EffectiveAgent {
@@ -162,12 +182,16 @@ export interface StagePrompts {
   retrieval: string
   generation: string
   review: string
+  illustration: string
 }
 
 // ---------- 模型目录与 Agent（能力中心「模型」「Agent」两页）----------
 
 export type ActiveStatus = 'active' | 'disabled'
+/** 带能力、写提示词的三步：找资料 / 写 / 检查 */
 export type StageName = 'retrieval' | 'generation' | 'review'
+/** 流水线上由 AI 完成的四步：三步之外加配图（配图不带能力） */
+export type PipelineStage = StageName | 'illustration'
 
 export interface AiModel {
   modelId: string
@@ -175,11 +199,15 @@ export interface AiModel {
   /** 厂商侧模型名，调接口时传 */
   name: string
   label: string
+  /** text 文字（对话、带工具）/ image 图片（只用来配图） */
+  modality: 'text' | 'image'
   /** free 免费 / plan 包月或套餐 / metered 按量计费（只有它按单价算钱） */
   billing: 'free' | 'plan' | 'metered'
-  /** 元 / 千 token，只对按量计费有意义 */
+  /** 元 / 千 token，只对按量计费的文字模型有意义 */
   inputPricePer1k: string
   outputPricePer1k: string
+  /** 元 / 张，只对按量计费的图片模型有意义 */
+  pricePerImage: string
   maxOutputTokens: number
   disableThinking: boolean
   requestTimeoutSec: number
@@ -225,7 +253,7 @@ export interface AgentCapabilityRef {
   actions: string[]
 }
 
-export type AgentUsage = StageName | 'assist' | ''
+export type AgentUsage = PipelineStage | 'assist' | ''
 
 export interface Agent {
   agentId: string
@@ -233,7 +261,7 @@ export interface Agent {
   description: string
   modelId: string
   modelLabel: string
-  /** 常用在哪一步；assist = 写提示词（配方页的 AI 生成 / 优化 / 检查），不能用在生产步骤 */
+  /** 常用在哪一步；assist = 写提示词（配方页的 AI 生成 / 优化 / 检查）、illustration = 配图（大脑要是图片模型），都不能用在找资料 / 写 / 检查 */
   recommendStage: AgentUsage
   capabilities: AgentCapabilityRef[]
   origin: 'platform' | 'custom'
@@ -243,7 +271,7 @@ export interface Agent {
   rolePrompt?: string
   maxLlmCalls?: number
   costCapCent?: number
-  recipes?: { appId: string; recipeId: string; name: string; stage: StageName }[]
+  recipes?: { appId: string; recipeId: string; name: string; stage: PipelineStage }[]
 }
 
 export interface AgentInput {
@@ -286,7 +314,8 @@ export interface AiRunStep {
 
 export interface AiRun {
   runId: string
-  stage: 'retrieval' | 'generation' | 'review'
+  stage: PipelineStage
+  /** 配图时是第几张 */
   attempt: number
   /** 这一步由哪个 Agent 做（Agent 上线前的记录为空） */
   agentId: string
@@ -319,6 +348,7 @@ export interface EnumDict {
   recipeStatus: EnumOption[]
   sourceMode: EnumOption[]
   freshness: EnumOption[]
+  layout: EnumOption[]
 }
 
 export type EnumGroup = keyof EnumDict
@@ -348,8 +378,6 @@ export type CapabilityStatus =
   | 'disabled'
   | 'unreachable'
 export type CapabilityOrigin = 'platform' | 'enterprise'
-export type CapAppType = AppType
-export type Stage = 'retrieval' | 'generation' | 'review'
 export type McpTransport = 'streamable' | 'sse'
 
 export interface SkillContent {
@@ -416,9 +444,9 @@ export interface Capability {
   name: string
   summary: string
   /** 空数组 = 通用 */
-  appTypes: CapAppType[]
+  appTypes: AppType[]
   /** 不出现 = 不限 */
-  recommendStage?: Stage
+  recommendStage?: StageName
   origin: CapabilityOrigin
   status: CapabilityStatus
   /** 仅详情接口、仅技能 */
@@ -428,8 +456,8 @@ export interface Capability {
 }
 
 export interface ListCapabilitiesQuery {
-  appType?: CapAppType
-  stage?: Stage
+  appType?: AppType
+  stage?: StageName
   kind?: CapabilityKind
   status?: CapabilityStatus
 }
@@ -445,8 +473,8 @@ export interface CreateCapabilityRequest {
   kind: 'skill' | 'tool'
   name: string
   summary: string
-  appTypes: CapAppType[]
-  recommendStage?: Stage
+  appTypes: AppType[]
+  recommendStage?: StageName
   skill?: { body: string; files?: Pick<SkillFile, 'path' | 'content'>[] }
   tool?: {
     mcpTransport: McpTransport
@@ -462,8 +490,8 @@ export interface UpdateCapabilityRequest {
   status?: 'active' | 'disabled'
   name?: string
   summary?: string
-  appTypes?: CapAppType[]
-  recommendStage?: Stage | 'unspecified'
+  appTypes?: AppType[]
+  recommendStage?: StageName | 'unspecified'
   skill?: { body?: string }
   tool?: {
     mcpTransport?: McpTransport
@@ -477,24 +505,120 @@ export interface UpdateCapabilityRequest {
 // ---------- 生产任务（试跑用）----------
 
 export type JobStatus =
-  | 'received' | 'planned' | 'materializing' | 'generating' | 'reviewing' | 'delivering'
+  | 'received' | 'planned' | 'materializing' | 'generating' | 'reviewing' | 'illustrating' | 'delivering'
   | 'success' | 'skipped' | 'rejected' | 'failed' | 'waiting_human'
+
+/** 生产走到哪一步 */
+export type JobStepName = 'planning' | 'material' | 'generation' | 'review' | 'illustration' | 'delivery' | 'none'
+
+/** 文件角色：cover 封面 / illustration 配图 */
+export type FileRole = 'cover' | 'illustration'
+
+/** 内容带的一个文件：序号、角色，地址和尺寸（读不出来时没有尺寸） */
+export interface JobFile {
+  no: number
+  role: FileRole
+  fileId: string
+  caption?: string
+  /** 相对地址，带 ?download=true 下载 */
+  url: string
+  mime?: string
+  width?: number
+  height?: number
+  sizeBytes?: number
+}
+
+/** 资料清单（找资料交出） */
+export interface MaterialList {
+  items: { no: number; title: string; url: string; excerpt: string; publishedAt: string }[]
+}
+
+/** 图文稿（写交出）。body 是 Markdown */
+export interface ArticleDraft {
+  title: string
+  titleCandidates: string[]
+  body: string
+  tags: string[]
+  imageHints: string[]
+}
+
+/** 检查报告（检查交出）：逐条结果，quote 是出问题的原句 */
+export interface ReviewReport {
+  passed: boolean
+  score: number
+  items: { text: string; passed: boolean; reason: string; quote: string }[]
+}
+
+/** 图片组（配图交出），含没画出来的 */
+export interface ImageSet {
+  images: {
+    no: number
+    role: FileRole
+    caption: string
+    fileId?: string
+    status: 'succeeded' | 'failed'
+    error?: string
+    prompt?: string
+  }[]
+}
+
+/** 图文成品（交付物）。body 是 Markdown，可用 ![说明](image:序号) 放图 */
+export interface Article {
+  /** 版式；早期的交付物没有，按小红书笔记 */
+  layout?: Layout
+  title: string
+  body: string
+  tags: string[]
+  files: { no: number; role: FileRole; fileId: string; caption?: string }[]
+}
+
+/** 一步交出的一份东西，content 的形状由 format 定 */
+export type StepResult = { resultId: string; files: JobFile[] } & (
+  | { format: 'material_list'; content: MaterialList }
+  | { format: 'article_draft'; content: ArticleDraft }
+  | { format: 'review_report'; content: ReviewReport }
+  | { format: 'image_set'; content: ImageSet }
+)
+
+/** 做了一次某一步 */
+export interface JobStepRecord {
+  step: JobStepName
+  /** 这一步第几次，从 1 起 */
+  attempt: number
+  status: 'running' | 'succeeded' | 'failed'
+  startedAt?: string
+  finishedAt?: string
+  costMs: number
+  errorMsg?: string
+  results: StepResult[]
+}
+
+/** 交付物：最终成品 */
+export interface Deliverable {
+  deliverableId: string
+  format: 'article'
+  content: Article
+  files: JobFile[]
+}
 
 export interface ProductionJob {
   jobId: string
   appId: string
+  recipeId: string
   subjectId: string
   /** 本次主题：替换提示词里的 {{主题}} */
   topic: string
   /** 本次其它变量的值 */
   variables?: Record<string, string>
   status: JobStatus
-  currentStage: 'planning' | 'material' | 'generation' | 'review' | 'delivery' | 'none'
-  report?: {
-    status: JobStatus
-    stages: { stage: string; success: boolean; errorMsg?: string }[]
-    artifacts: { type: string; role: string; content: string }[]
-  }
+  currentStep: JobStepName
+  /** 定稿是哪条步骤结果，没定稿为空 */
+  finalResultId: string
+  steps: JobStepRecord[]
+  /** 还没交付为 null */
+  deliverable: Deliverable | null
+  /** 受理时生效的配方设置，复盘用 */
+  recipeSnapshot?: { illustration?: { enabled: boolean; count: number }; layout?: Layout } & Record<string, unknown>
 }
 
 export interface SubmitJobRequest {
@@ -513,8 +637,8 @@ export interface JobListItem {
   recipeId: string
   topic: string
   status: JobStatus
-  currentStage: ProductionJob['currentStage']
-  /** 成稿标题；还没写出来为空 */
+  currentStep: JobStepName
+  /** 交付物的标题，没交付取最新一稿的；都没有为空 */
   title: string
   createdAt: string
   updatedAt: string
@@ -532,7 +656,7 @@ export interface SkillDraft {
 
 export interface SkillTemplate extends SkillDraft {
   slug: string
-  recommendStage?: Stage
+  recommendStage?: StageName
 }
 
 export interface SkillDraftResult {
@@ -549,7 +673,7 @@ export type PromptAssistMode = 'generate' | 'optimize' | 'check'
 
 export interface PromptAssistRequest {
   mode: PromptAssistMode
-  stage: Stage
+  stage: StageName
   recipeName?: string
   appTypeName?: string
   /** generate 用：想让这一步做什么，可空 */

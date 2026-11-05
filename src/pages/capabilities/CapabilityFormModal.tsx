@@ -5,9 +5,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, toNamePath } from '@/api/client'
 import { createCapability, discoverTools } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { CapAppType, CreateCapabilityRequest, McpTransport, SkillFile, Stage, ToolAction } from '@/api/types'
-import { CAP_APP_TYPES, STAGES } from '@/constants/capability'
+import type { AppType, CreateCapabilityRequest, McpTransport, SkillFile, StageName, ToolAction } from '@/api/types'
+import { STAGES } from '@/constants/capability'
+import { DESCRIPTION_MAX_LEN, NAME_MAX_LEN } from '@/constants/limits'
 import { useApiError } from '@/hooks/useApiError'
+import { useEnums } from '@/hooks/useEnums'
 import { brand } from '@/theme'
 import MarkdownView from '@/components/MarkdownView'
 import SkillStarter, { type StartResult } from './SkillStarter'
@@ -19,8 +21,8 @@ interface FormValues {
   kind: Kind
   name: string
   summary?: string
-  appTypes: CapAppType[]
-  recommendStage?: Stage
+  appTypes: AppType[]
+  recommendStage?: StageName
   skillBody?: string
   mcpTransport?: McpTransport
   mcpUrl?: string
@@ -167,14 +169,14 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
               {skillStart.warnings.map((w) => (
                 <Alert key={w} type="warning" showIcon title={w} style={{ marginBottom: 12 }} />
               ))}
-              <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请填写名称' }, { max: 64 }]}>
+              <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请填写名称' }, { max: NAME_MAX_LEN }]}>
                 <Input placeholder="如：品牌口吻 · 轻松版" />
               </Form.Item>
               <Form.Item
                 name="summary"
                 label="什么时候用它"
                 extra="AI 只先看到名称和这句话，靠它决定要不要读正文。写清楚在什么情况下用、用了能做到什么"
-                rules={[{ required: true, whitespace: true, message: '请写清楚什么时候用它' }, { max: 255 }]}
+                rules={[{ required: true, whitespace: true, message: '请写清楚什么时候用它' }, { max: DESCRIPTION_MAX_LEN }]}
               >
                 <Input placeholder="如：写拾光家居的内容时用：口吻像会过日子的朋友" />
               </Form.Item>
@@ -216,7 +218,7 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
                 style={{ marginBottom: 16 }}
                 title="填上 MCP 服务的地址，连上后会自动列出它能做的事，不用自己写说明。"
               />
-              <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请填写名称' }, { max: 64 }]}>
+              <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请填写名称' }, { max: NAME_MAX_LEN }]}>
                 <Input placeholder="如：商品库" />
               </Form.Item>
               <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 16 }}>
@@ -258,7 +260,7 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
                 name="summary"
                 label="一句话简介（选填）"
                 extra="只给人在能力中心里看，不填会按动作自动生成"
-                rules={[{ max: 255 }]}
+                rules={[{ max: DESCRIPTION_MAX_LEN }]}
               >
                 <Input placeholder={actions.length ? `提供 ${actions.length} 个动作：${actions.map((a) => a.name).join('、')}` : ''} />
               </Form.Item>
@@ -272,10 +274,11 @@ export default function CapabilityFormModal({ open, onClose }: { open: boolean; 
 
 /** 适用类型 + 推荐阶段。 */
 function ScopeFields() {
+  const { options } = useEnums()
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
       <Form.Item name="appTypes" label="适用应用类型" extra="不选就是通用，所有应用都能用">
-        <Select mode="multiple" allowClear placeholder="通用" options={CAP_APP_TYPES} />
+        <Select mode="multiple" allowClear placeholder="通用" options={options('appType')} />
       </Form.Item>
       <Form.Item name="recommendStage" label="推荐阶段" extra="在这一步的能力列表里排在前面，不限制用在哪一步">
         <Select allowClear placeholder="不限" options={STAGES} />

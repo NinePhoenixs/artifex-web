@@ -12,6 +12,13 @@ describe('AI 装配的字段错误定位', () => {
     expect(sectionOfField('name')).toBe('basic')
   })
 
+  it('配图的设置、提示词、Agent 错误跳到配图；其余步骤选错 Agent 跳到那一步', () => {
+    expect(sectionOfField('illustration.imageCount')).toBe('illustration')
+    expect(sectionOfField('aiSetting.prompts.illustration')).toBe('illustration')
+    expect(sectionOfField('aiSetting.agents.illustration')).toBe('illustration')
+    expect(sectionOfField('aiSetting.agents.generation')).toBe('generation')
+  })
+
   it('授权清单的下标错误标到整个阶段的清单上', () => {
     expect(formFieldOf('aiSetting.grants.generation[1]')).toBe('aiSetting.grants.generation')
     expect(formFieldOf('aiSetting.costCapCent')).toBe('aiSetting.costCapCent')

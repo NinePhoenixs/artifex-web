@@ -7,14 +7,15 @@ export function needsCustom(value: string | null | undefined): boolean {
 }
 
 /** 后端字段路径 → 属于哪一段，用于 422 时跳到第一个出错的段。 */
-export type SectionKey = 'basic' | 'retrieval' | 'generation' | 'review'
+export type SectionKey = 'basic' | 'retrieval' | 'generation' | 'review' | 'illustration'
 
 export function sectionOfField(field: string): SectionKey {
-  const stage = /^aiSetting\.(?:prompts|grants)\.(retrieval|generation|review)/.exec(field)
+  const stage = /^aiSetting\.(?:prompts|grants|agents)\.(retrieval|generation|review|illustration)/.exec(field)
   if (stage) return stage[1] as SectionKey
   // 各步自己的设置跟着那一步；档位 / 模型 / 上限对整份配方生效，放在基本信息
   if (field.startsWith('materialSpec')) return 'retrieval'
   if (field.startsWith('reviewPolicy')) return 'review'
+  if (field.startsWith('illustration')) return 'illustration'
   return 'basic'
 }
 

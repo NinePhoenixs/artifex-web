@@ -221,7 +221,7 @@ export function handleMock(method: Method, path: string, body?: unknown): unknow
               status: 'draft',
               name: dupe ? '未命名配方（副本）' : '未命名配方',
               description: '',
-              aiSetting: { ...structuredClone(base.aiSetting), grants: { retrieval: [], generation: [], review: [] }, prompts: { retrieval: '', generation: '', review: '' }, actions: { retrieval: {}, generation: {}, review: {} } },
+              aiSetting: { ...structuredClone(base.aiSetting), grants: { retrieval: [], generation: [], review: [] }, prompts: { retrieval: '', generation: '', review: '', illustration: '' }, actions: { retrieval: {}, generation: {}, review: {} } },
               createdAt: now(),
               updatedAt: now(),
             }

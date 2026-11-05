@@ -1,0 +1,260 @@
+/* 进度角色：采风 / 执笔 / 校审 / 画师 / 小递。
+ * 注意：transform-box: view-box 时 transform-origin 从坐标 0 量起，不是 viewBox 的左边（viewBox 从 -24 开始）。 */
+.crew { --ink: #2C4E92; --line: #E7E3DA; --ok: #2E7D4F; --danger: #C2412D;
+  --ease: cubic-bezier(.2,.8,.2,1); --spring: cubic-bezier(.34,1.56,.64,1); }
+/* ---------- 角色动画 ---------- */
+.crew-ch { width: 168px; height: 120px; overflow: visible; }
+.crew-ch .body { transform-origin: 60px 106px; transform-box: view-box; }
+.crew-ch .eyes { transform-origin: 60px 59px; transform-box: view-box; }
+.crew-ch .prop { transform-box: view-box; }
+.crew-ch .fx { opacity: 0; transform-box: view-box; }
+.crew-ch .sweat { opacity: 0; }
+.crew-ch .zz { opacity: 0; }
+
+/* 常态：呼吸 + 眨眼 */
+.crew-ch .body { animation: crew-breathe 3.2s ease-in-out infinite; }
+.crew-ch .eyes { animation: crew-blink 4.6s infinite; }
+@keyframes crew-breathe { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.015,.975); } }
+@keyframes crew-blink { 0%,94%,100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+
+/* 等待：看着同伴干活；等久了打个盹，又惊醒（每个角色错开节奏） */
+.crew-ch .eyes-closed, .crew-ch .eyes-happy, .crew-ch .eyes-sad, .crew-ch .zz, .crew-ch .confetti, .crew-ch .cloud { opacity: 0; }
+.crew-ch * { transform-box: view-box; }
+.crew-ch.wait { filter: saturate(.8); }
+.crew-ch.wait .body { transform-origin: 60px 106px; animation: crew-waitbody 7s ease-in-out infinite var(--d); }
+.crew-ch.wait .eyes { animation: crew-lookdoze 7s infinite var(--d); }
+.crew-ch.wait .eyes-closed { animation: crew-doze 7s infinite var(--d); }
+.crew-ch.wait .zz { opacity: 1; }
+.crew-ch .z1, .crew-ch .z2 { opacity: 0; }
+.crew-ch.wait .z1 { animation: crew-z 7s infinite var(--d); }
+.crew-ch.wait .z2 { animation: crew-z 7s infinite calc(var(--d) + .5s); }
+@keyframes crew-waitbody {
+  0%,100% { transform: rotate(0); } 12% { transform: rotate(-2deg); } 24% { transform: rotate(1deg); } 36%,50% { transform: rotate(0); }
+  60%,84% { transform: rotate(-5deg) translateY(2px); } 90% { transform: translateY(-6px) rotate(0); } 95% { transform: translateY(0); } }
+@keyframes crew-lookdoze { 0%,52% { opacity: 1; transform: translate(-2.5px, 0); } 56%,88% { opacity: 0; } 90%,100% { opacity: 1; transform: translate(0, -1px); } }
+@keyframes crew-doze { 0%,53% { opacity: 0; } 56%,88% { opacity: 1; } 90%,100% { opacity: 0; } }
+@keyframes crew-z { 0%,58% { opacity: 0; transform: translate(0, 0); } 66% { opacity: .9; } 86% { opacity: 0; transform: translate(6px, -12px); } 100% { opacity: 0; } }
+
+/* 干活：场景出现，角色看着手上的活 */
+.crew-ch .scene { opacity: 0; transition: opacity .3s var(--ease); }
+.crew-ch.work .scene { opacity: 1; }
+.crew-ch.work .prop { opacity: 0; }
+.crew-ch.work .eyes { transform: translate(2.5px, 1.5px); animation: none; }
+.crew-ch.work .body { animation: crew-busy 1.6s ease-in-out infinite; }
+@keyframes crew-busy { 0%,100% { transform: rotate(2deg); } 50% { transform: rotate(4deg) translateY(1px); } }
+.crew-ch .scene * { transform-box: view-box; }
+
+/* 执笔：一行一行写，写满换一张 */
+.crew-ch .ln { fill: none; stroke: #2C4E92; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 24; stroke-dashoffset: 24; }
+.crew-ch.work .l1 { animation: crew-w1 3.6s linear infinite; }
+.crew-ch.work .l2 { animation: crew-w2 3.6s linear infinite; }
+.crew-ch.work .l3 { animation: crew-w3 3.6s linear infinite; }
+@keyframes crew-w1 { 0% { stroke-dashoffset: 24; } 28%,92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes crew-w2 { 0%,30% { stroke-dashoffset: 24; } 58%,92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes crew-w3 { 0%,60% { stroke-dashoffset: 24; } 80%,92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.crew-ch .pen { transform: translate(105px, 78px); }
+.crew-ch.work .pen { animation: crew-pen 3.6s linear infinite; }
+@keyframes crew-pen {
+  0% { transform: translate(105px, 77px); } 28% { transform: translate(127px, 75px); }
+  30% { transform: translate(105px, 85px); } 58% { transform: translate(127px, 83px); }
+  60% { transform: translate(105px, 93px); } 80% { transform: translate(121px, 92px); }
+  92% { transform: translate(124px, 100px) rotate(-10deg); } 100% { transform: translate(105px, 77px); } }
+
+/* 校审：红笔逐行往下，每行打勾 */
+.crew-ch .ck { fill: none; stroke: #C2412D; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 12; stroke-dashoffset: 12; }
+.crew-ch.work .c1 { animation: crew-k1 3.6s ease-out infinite; }
+.crew-ch.work .c2 { animation: crew-k2 3.6s ease-out infinite; }
+.crew-ch.work .c3 { animation: crew-k3 3.6s ease-out infinite; }
+@keyframes crew-k1 { 0%,22% { stroke-dashoffset: 12; } 28%,94% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes crew-k2 { 0%,52% { stroke-dashoffset: 12; } 58%,94% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes crew-k3 { 0%,82% { stroke-dashoffset: 12; } 88%,94% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.crew-ch .rpen { transform: translate(106px, 76px); }
+.crew-ch.work .rpen { animation: crew-rpen 3.6s ease-in-out infinite; }
+@keyframes crew-rpen {
+  0% { transform: translate(106px, 75px); } 20% { transform: translate(120px, 75px); } 28% { transform: translate(128px, 75px); }
+  32% { transform: translate(106px, 85px); } 50% { transform: translate(120px, 85px); } 58% { transform: translate(128px, 85px); }
+  62% { transform: translate(106px, 95px); } 80% { transform: translate(120px, 95px); } 88% { transform: translate(128px, 95px); }
+  100% { transform: translate(106px, 75px); } }
+
+/* 采风：放大镜扫一扫，找到一张资料卡，飞进左边那摞 */
+.crew-ch.work.caifeng .body { animation: crew-hop .8s var(--ease) infinite; }
+.crew-ch.work.caifeng .prop { opacity: 1; transform-origin: 96px 72px; animation: crew-scan 1.2s ease-in-out infinite; }
+.crew-ch .sc { fill: #fff; stroke: #3F8F67; stroke-width: 1.8; opacity: 0; }
+.crew-ch.work .s1 { animation: crew-st1 4.2s infinite; } .crew-ch.work .s2 { animation: crew-st2 4.2s infinite; } .crew-ch.work .s3 { animation: crew-st3 4.2s infinite; }
+@keyframes crew-st1 { 0%,30% { opacity: 0; } 33%,95% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes crew-st2 { 0%,63% { opacity: 0; } 66%,95% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes crew-st3 { 0%,96% { opacity: 0; } 100% { opacity: 0; } }
+.crew-ch .flycard { opacity: 0; }
+.crew-ch.work .flycard { animation: crew-fly 1.4s var(--ease) infinite; }
+@keyframes crew-fly {
+  0% { opacity: 0; transform: translate(112px, 96px) scale(.6); } 15% { opacity: 1; transform: translate(112px, 88px) scale(1); }
+  55% { opacity: 1; transform: translate(50px, 18px) rotate(-20deg); } 90% { opacity: 1; transform: translate(-5px, 88px) rotate(-6deg); }
+  100% { opacity: 0; transform: translate(-5px, 92px); } }
+.crew-ch .found { opacity: 0; }
+.crew-ch.work .found { animation: crew-pop 1.4s var(--ease) infinite; }
+@keyframes crew-pop { 0% { opacity: 0; transform: scale(.4); } 15% { opacity: 1; transform: scale(1.1); } 40%,100% { opacity: 0; transform: scale(1); } }
+@keyframes crew-hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+@keyframes crew-scan { 0%,100% { transform: rotate(-14deg) translateY(6px); } 50% { transform: rotate(12deg) translateY(8px); } }
+
+/* 画师：在画板上一层层画出一幅画 */
+.crew-ch .pt { opacity: 0; }
+.crew-ch.work .p1 { animation: crew-pa1 4.8s infinite; } .crew-ch.work .p2 { animation: crew-pa2 4.8s infinite; } .crew-ch.work .p3 { animation: crew-pa3 4.8s infinite; }
+@keyframes crew-pa1 { 0%,5% { opacity: 0; } 25%,92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes crew-pa2 { 0%,32% { opacity: 0; } 55%,92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes crew-pa3 { 0%,62% { opacity: 0; } 78%,92% { opacity: 1; } 100% { opacity: 0; } }
+.crew-ch .brushw { transform: translate(108px, 62px); }
+.crew-ch.work .brushw { animation: crew-paint 4.8s ease-in-out infinite; }
+@keyframes crew-paint {
+  0% { transform: translate(106px, 58px); } 8% { transform: translate(132px, 60px); } 16% { transform: translate(106px, 66px); } 24% { transform: translate(132px, 70px); }
+  36% { transform: translate(110px, 84px); } 44% { transform: translate(118px, 76px); } 52% { transform: translate(130px, 84px); }
+  64% { transform: translate(126px, 60px); } 70% { transform: translate(131px, 64px) rotate(8deg); } 78% { transform: translate(127px, 62px); }
+  100% { transform: translate(106px, 58px); } }
+.crew-ch.work.huashi .body { animation: crew-sway 1.4s ease-in-out infinite; }
+@keyframes crew-sway { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+
+/* 小递：封箱、盖章、送走，再来一箱 */
+.crew-ch .tape { fill: none; stroke: #B8862A; stroke-width: 3; stroke-dasharray: 30; stroke-dashoffset: 30; }
+.crew-ch.work .tape { animation: crew-tape 3.2s ease-out infinite; }
+@keyframes crew-tape { 0%,8% { stroke-dashoffset: 30; } 30%,100% { stroke-dashoffset: 0; } }
+.crew-ch .mark { opacity: 0; }
+.crew-ch.work .mark { animation: crew-mark 3.2s infinite; }
+@keyframes crew-mark { 0%,52% { opacity: 0; transform: scale(1.4); } 56% { opacity: 1; transform: scale(1); } 100% { opacity: 1; } }
+.crew-ch.work .parcel { animation: crew-ship 3.2s var(--ease) infinite; }
+@keyframes crew-ship { 0% { opacity: 0; transform: translateX(-10px); } 8%,72% { opacity: 1; transform: translateX(0); } 76% { transform: translateY(-4px); } 92%,100% { opacity: 0; transform: translateX(26px); } }
+.crew-ch .stamper { transform: translate(122px, 70px); opacity: 0; }
+.crew-ch.work .stamper { animation: crew-stampit 3.2s var(--ease) infinite; }
+@keyframes crew-stampit { 0%,34% { opacity: 0; transform: translate(122px, 60px); } 40% { opacity: 1; transform: translate(122px, 62px); }
+  50% { opacity: 1; transform: translate(122px, 62px); } 54% { opacity: 1; transform: translate(122px, 91px) scaleY(.85); }
+  62% { opacity: 1; transform: translate(122px, 64px); } 70%,100% { opacity: 0; transform: translate(122px, 60px); } }
+
+/* 完成：笑眯眼、举手欢呼、撒彩纸、挂上勾 */
+.crew-ch.done .body { animation: crew-cheer .8s var(--spring) 1, crew-breathe 3.2s ease-in-out .8s infinite; }
+.crew-ch.done .eyes { opacity: 0; animation: none; }
+.crew-ch.done .eyes-happy { opacity: 1; }
+.crew-ch.done .arm.l { transform-origin: 32px 74px; animation: crew-raiseL 1.4s var(--spring) 1; }
+.crew-ch.done .arm.r { transform-origin: 88px 74px; animation: crew-raiseR 1.4s var(--spring) 1; }
+@keyframes crew-raiseL { 0% { transform: rotate(0); } 25% { transform: rotate(118deg); } 40% { transform: rotate(100deg); } 55% { transform: rotate(118deg); } 70% { transform: rotate(108deg); } 100% { transform: rotate(0); } }
+@keyframes crew-raiseR { 0% { transform: rotate(0); } 25% { transform: rotate(-118deg); } 40% { transform: rotate(-100deg); } 55% { transform: rotate(-118deg); } 70% { transform: rotate(-108deg); } 100% { transform: rotate(0); } }
+@keyframes crew-cheer { 0% { transform: translateY(0); } 40% { transform: translateY(-12px) scale(1.04, .96); } 100% { transform: translateY(0); } }
+.crew-ch.done .confetti { opacity: 1; }
+.crew-ch .cf { opacity: 0; }
+.crew-ch.done .cf { animation: crew-burst 1.3s var(--ease) 1 forwards; }
+.crew-ch.done .f1 { --x: -34px; --y: -26px; --r: -120deg; } .crew-ch.done .f2 { --x: -18px; --y: -38px; --r: 90deg; }
+.crew-ch.done .f3 { --x: 4px;  --y: -42px; --r: 0deg; }    .crew-ch.done .f4 { --x: 22px;  --y: -36px; --r: 140deg; }
+.crew-ch.done .f5 { --x: 36px; --y: -22px; --r: 0deg; }    .crew-ch.done .f6 { --x: -2px;  --y: -30px; --r: -80deg; }
+@keyframes crew-burst { 0% { opacity: 0; transform: translate(0, 0); } 15% { opacity: 1; }
+  60% { opacity: 1; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 26px)) rotate(var(--r)); } }
+.crew-ch .badge { opacity: 0; transform: scale(.4); transform-origin: 98px 30px; transition: all .4s var(--spring) .5s; }
+.crew-ch.done .badge { opacity: 1; transform: scale(1); }
+
+/* 出错：委屈眼、掉眼泪、头顶小乌云下雨、手里的东西掉了 */
+.crew-ch.fail { filter: saturate(.7); }
+.crew-ch.fail .body { animation: none; transform: translateY(3px) rotate(-5deg); transition: transform .5s var(--ease); }
+.crew-ch.fail .eyes { opacity: 0; animation: none; }
+.crew-ch.fail .eyes-sad { opacity: 1; }
+.crew-ch .tear { opacity: 0; }
+.crew-ch.fail .tear { animation: crew-tear 1.8s ease-in infinite; }
+@keyframes crew-tear { 0% { opacity: 0; transform: translateY(-2px); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(9px); } }
+.crew-ch.fail .mouth-ok { opacity: 0; }
+.crew-ch .mouth-sad { opacity: 0; }
+.crew-ch.fail .mouth-sad { opacity: 1; }
+.crew-ch.fail .cloud { opacity: 1; animation: crew-cloud 2.6s ease-in-out infinite; }
+@keyframes crew-cloud { 0%,100% { transform: translate(0, 0); } 50% { transform: translate(3px, -1px); } }
+.crew-ch .rain { stroke: #6BA6D6; stroke-width: 1.8; stroke-linecap: round; opacity: 0; }
+.crew-ch.fail .rain { animation: crew-rain 1s linear infinite; }
+.crew-ch.fail .r2 { animation-delay: .33s; } .crew-ch.fail .r3 { animation-delay: .66s; }
+@keyframes crew-rain { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px); } }
+.crew-ch.fail .prop { transform-origin: 96px 90px; transform: rotate(50deg) translate(8px, 10px); opacity: .85; transition: transform .6s var(--spring); }
+
+/* 返修：校审摇头 */
+.crew-ch.reject .body { animation: crew-shake .5s ease-in-out 2; }
+.crew-ch.reject .ck { stroke-dashoffset: 0 !important; animation: none !important; }
+.crew-ch.reject .c3 { stroke: #C2412D; }
+@keyframes crew-shake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+
+
+/* ---------- 衔接与过渡 ---------- */
+.crew-ch .eyes-closed, .crew-ch .eyes-happy, .crew-ch .eyes-sad, .crew-ch .cloud { transition: opacity .25s var(--ease); }
+.crew-ch .scene { transform-origin: 120px 88px; transform: scale(.85); transition: opacity .35s var(--ease), transform .35s var(--spring); }
+.crew-ch.work .scene { transform: scale(1); }
+.crew-ch .prop { transition: opacity .25s var(--ease); }
+/* 被叫醒：睁眼看向前一位，轻轻一跳 */
+.crew-ch.ready .body { animation: crew-wake .5s var(--spring) 1, crew-breathe 3.2s ease-in-out .5s infinite; }
+.crew-ch.ready .eyes { transform: translate(-2.5px, -.5px); animation: none; }
+@keyframes crew-wake { 0% { transform: translateY(0) scale(1, 1); } 35% { transform: translateY(-5px) scale(.98, 1.03); } 100% { transform: translateY(0); } }
+/* 抛稿子：右手往前一甩；回抛时整个身子一扭 */
+.crew-ch.toss .arm.r { transform-origin: 88px 74px; animation: crew-toss .6s var(--ease) 1; }
+@keyframes crew-toss { 0% { transform: rotate(0); } 35% { transform: rotate(30deg); } 65% { transform: rotate(-95deg); } 100% { transform: rotate(0); } }
+/* 接稿子：双手迎上去，小跳 */
+.crew-ch.catch .body { animation: crew-catchit .55s var(--spring) 1; }
+.crew-ch.catch .arm.l { transform-origin: 32px 74px; animation: crew-reachL .55s var(--ease) 1; }
+.crew-ch.catch .arm.r { transform-origin: 88px 74px; animation: crew-reachR .55s var(--ease) 1; }
+@keyframes crew-catchit { 0% { transform: translateY(0); } 40% { transform: translateY(-6px); } 100% { transform: translateY(0); } }
+@keyframes crew-reachL { 50% { transform: rotate(70deg); } }
+@keyframes crew-reachR { 50% { transform: rotate(-70deg); } }
+/* 挠头 */
+.crew-ch.scratch .arm.r { transform-origin: 88px 74px; animation: crew-scratch .9s ease-in-out 1; }
+@keyframes crew-scratch { 0%,100% { transform: rotate(0); } 25%,75% { transform: rotate(-145deg); } 37%,62% { transform: rotate(-128deg); } 50% { transform: rotate(-145deg); } }
+/* 中间交接只轻轻点个头，彩纸留给最后 */
+.crew-ch.done.quiet .cf { animation: none; }
+.crew-ch.done.quiet .body { animation: crew-breathe 3.2s ease-in-out infinite; }
+.crew-ch.done.quiet .arm.l, .crew-ch.done.quiet .arm.r { animation: none; }
+
+.crew-ch.fail.jiaoshen .prop { transform-origin: 24px 92px; transform: rotate(-60deg) translate(-4px, 12px); }
+
+/* ---------- 进度条 ---------- */
+.crew-lane { position: relative; display: grid; padding-top: 28px; max-height: 340px;
+  transition: max-height .6s var(--ease), opacity .4s var(--ease); }
+.crew-lane.collapsing { max-height: 0; opacity: 0; overflow: hidden; }
+.crew-track { position: absolute; top: 174px; height: 2px; background: repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 12px); }
+.crew-track .fill { position: absolute; left: 0; top: 0; height: 2px; width: 0; background: var(--ink); transition: width .8s var(--ease); }
+.crew-slot { position: relative; text-align: center; min-width: 0; }
+.crew-slot .stagebox { height: 140px; display: grid; place-items: end center; position: relative; }
+.crew-slot .dot { width: 12px; height: 12px; margin: 4px auto 0; border-radius: 50%; background: #fff; border: 2px solid var(--line); position: relative; z-index: 1; transition: all .3s var(--ease); }
+.crew-slot.work .dot { border-color: var(--ink); box-shadow: 0 0 0 5px rgba(44,78,146,.12); }
+.crew-slot.done .dot { background: var(--ink); border-color: var(--ink); }
+.crew-slot.fail .dot { background: var(--danger); border-color: var(--danger); }
+.crew-slot .name { font-weight: 600; margin-top: 10px; font-size: 14px; color: #1D1D1F; }
+.crew-slot .say { font-size: 12.5px; color: rgba(0,0,0,.42); min-height: 40px; padding: 0 6px; line-height: 1.55; transition: color .3s var(--ease); }
+.crew-slot.work .say { color: var(--ink); }
+.crew-slot.fail .say { color: var(--danger); }
+.crew-token { position: absolute; left: 0; top: 0; width: 24px; height: 28px; margin: -14px 0 0 -12px; opacity: 0; z-index: 5; pointer-events: none; }
+.crew-loop { position: absolute; top: 10px; height: 30px; pointer-events: none; opacity: 0; transition: opacity .3s var(--ease); }
+.crew-loop.on { opacity: 1; }
+.crew-loop span { position: absolute; left: 50%; top: -16px; transform: translateX(-50%); font-size: 12px; color: var(--danger); background: #fff; padding: 0 6px; white-space: nowrap; }
+
+/* 对话气泡 */
+.crew-bubble { position: absolute; left: 50%; top: -6px; z-index: 4; transform: translate(-50%, 6px) scale(.8); opacity: 0;
+  background: #fff; border: 1.5px solid var(--ink); color: var(--ink); border-radius: 12px; padding: 2px 10px; font-size: 12.5px; white-space: nowrap;
+  transition: opacity .2s var(--ease), transform .3s var(--spring); pointer-events: none; }
+.crew-bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 8px; height: 8px; background: #fff;
+  border-right: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
+.crew-bubble.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.crew-bubble.out { opacity: 0; transform: translate(-50%, -6px) scale(.95); }
+
+/* 小号（试产卡片里）：只放角色和一行说明 */
+.crew.sm .crew-lane { padding-top: 6px; }
+.crew.sm .crew-slot .stagebox { height: 56px; }
+.crew.sm .crew-ch { width: 74px; height: 53px; }
+.crew.sm .crew-track { top: 64px; }
+.crew.sm .crew-slot .name { font-size: 12px; margin-top: 6px; }
+.crew.sm .crew-slot .say, .crew.sm .crew-bubble, .crew.sm .crew-loop { display: none; }
+.crew.sm .crew-now { margin-top: 8px; font-size: 12.5px; color: var(--ink); text-align: center; min-height: 20px; }
+
+/* 收起后的窄带 */
+.crew-strip { display: flex; align-items: center; gap: 14px; padding: 0 14px; max-height: 0; opacity: 0; overflow: hidden;
+  border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px var(--line); transform: translateY(-6px);
+  transition: max-height .5s var(--ease), opacity .4s var(--ease) .1s, transform .4s var(--ease) .1s, padding .5s var(--ease); }
+.crew-strip.on { max-height: 80px; opacity: 1; transform: none; padding: 10px 14px; }
+.crew-strip .mini { display: flex; flex: none; }
+.crew-strip .mini svg { width: 48px; height: 34px; margin-right: -22px; }
+.crew-strip .mini svg .scene, .crew-strip .mini svg .confetti { display: none; }
+.crew-strip .txt { font-size: 13px; color: rgba(0,0,0,.6); }
+.crew-strip .txt b { color: var(--ok); font-weight: 600; margin-right: 8px; }
+.crew-strip .txt b.bad { color: var(--danger); }
+.crew-strip button { margin-left: auto; border: 0; background: none; color: var(--ink); font-size: 13px; cursor: pointer; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crew-ch *, .crew-track .fill, .crew-token, .crew-lane, .crew-strip { animation: none !important; transition: none !important; }
+}

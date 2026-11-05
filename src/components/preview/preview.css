@@ -1,0 +1,80 @@
+/* 成品预览：小红书笔记（手机样子）、文章（阅读页），右侧拿去用 / 检查 / 资料 / 过程。 */
+.pv { --paper: #F6F4EF; --line: #E7E3DA; --line-2: #EFECE5; --text: #1D1D1F; --text-2: rgba(0,0,0,.6); --text-3: rgba(0,0,0,.42);
+  --ink: #2C4E92; --ink-soft: #EDF1F8; --ok: #2E7D4F; --ok-soft: #EAF4EE; --danger: #C2412D; --ease: cubic-bezier(.2,.8,.2,1); }
+.pv-cap { display: flex; gap: 8px; color: var(--text-3); font-size: 12.5px; margin: 0 0 12px; }
+.pv-empty { width: 100%; max-width: 520px; margin: 40px auto; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ---------- 笔记版：手机 ---------- */
+.pv-phone { width: 375px; max-width: 100%; background: #fff; border-radius: 28px; box-shadow: 0 1px 0 var(--line), 0 12px 40px rgba(0,0,0,.08); overflow: hidden; }
+.pv-phone .top { display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-size: 13px; color: var(--text-2); }
+.pv-phone .avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #DCE4F2, #B8C6E2); }
+.pv-carousel { position: relative; aspect-ratio: 3 / 4; background: #111; overflow: hidden; }
+.pv-carousel .track { display: flex; height: 100%; transition: transform .35s var(--ease); }
+.pv-carousel img { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; display: block; }
+.pv-carousel .noimg { width: 100%; height: 100%; display: grid; place-items: center; background: var(--paper); color: var(--text-3); font-size: 13px; }
+.pv-carousel .count { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.pv-carousel .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  border: 0; background: rgba(255,255,255,.85); color: #333; font-size: 16px; display: grid; place-items: center; }
+.pv-carousel .prev { left: 10px; } .pv-carousel .next { right: 10px; }
+.pv-dots { display: flex; justify-content: center; gap: 5px; padding: 10px 0 2px; }
+.pv-dots i { width: 5px; height: 5px; border-radius: 50%; background: #D8D8D8; transition: background .2s; }
+.pv-dots i.on { background: #FF2442; }
+.pv-note { padding: 8px 16px 18px; }
+.pv-note h2 { margin: 6px 0 10px; font-size: 17px; line-height: 1.45; font-weight: 600; color: var(--text); }
+.pv-note p { margin: 0 0 10px; font-size: 14.5px; line-height: 1.75; color: #333; white-space: pre-wrap; word-break: break-word; }
+.pv-note .topics { color: #13386C; font-size: 14px; }
+.pv-note .date { color: #999; font-size: 12px; margin-top: 10px; }
+
+/* ---------- 文章版：阅读页 ---------- */
+.pv-article-col { width: 720px; max-width: 100%; }
+.pv-article { background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px var(--line), 0 16px 40px rgba(0,0,0,.05); padding: 48px 56px 56px; color: #2B2B2E; }
+.pv-article h1 { font-size: 26px; line-height: 1.4; margin: 0 0 8px; color: var(--text); }
+.pv-article .byline { color: var(--text-3); font-size: 13px; margin-bottom: 28px; }
+.pv-article figure { margin: 28px 0; }
+.pv-article figure img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; display: block; background: var(--paper); }
+.pv-article figure .hole { aspect-ratio: 16 / 9; border-radius: 8px; border: 1.5px dashed var(--line); display: grid; place-items: center; color: var(--text-3); font-size: 13px; padding: 12px; text-align: center; }
+.pv-article figcaption { text-align: center; color: var(--text-3); font-size: 12.5px; margin-top: 8px; }
+.pv-article h2 { font-size: 19px; line-height: 1.4; margin: 36px 0 12px; color: var(--text); }
+.pv-article h3 { font-size: 17px; line-height: 1.4; margin: 28px 0 10px; color: var(--text); }
+.pv-article h4 { font-size: 15.5px; margin: 22px 0 8px; color: var(--text); }
+.pv-article p { font-size: 16px; line-height: 1.85; margin: 0 0 16px; }
+.pv-article ul, .pv-article ol { padding-left: 22px; margin: 0 0 16px; font-size: 16px; line-height: 1.85; }
+.pv-article table { width: 100%; border-collapse: collapse; margin: 8px 0 20px; font-size: 14.5px; }
+.pv-article th, .pv-article td { border-bottom: 1px solid var(--line-2); padding: 10px 12px; text-align: left; vertical-align: top; }
+.pv-article tr:first-child td { background: #FAF9F6; font-weight: 600; border-bottom-color: var(--line); }
+.pv-article blockquote { margin: 20px 0; padding: 12px 16px; background: var(--ink-soft); border-radius: 8px; color: #31456F; font-size: 15px; line-height: 1.75; white-space: pre-wrap; }
+.pv-article code { background: var(--paper); border-radius: 4px; padding: 0 4px; font-size: .92em; }
+.pv-article .tags { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line-2); color: var(--ink); font-size: 14px; }
+
+/* ---------- 右侧 ---------- */
+.pv-side .block + .block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line-2); }
+.pv-side .label { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--text); }
+.pv-side .actions { display: grid; gap: 8px; }
+.pv-side .row2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.pv-side .tip { margin: 4px 0 0; color: var(--text-3); font-size: 12px; }
+.pv-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; font-size: 12px; font-weight: 500; background: var(--ok-soft); color: var(--ok); }
+.pv-pill.bad { background: #FBEDEA; color: var(--danger); }
+.pv-check { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--text-2); }
+.pv-check li { position: relative; padding-left: 22px; margin-bottom: 7px; line-height: 1.5; }
+.pv-check li::before { content: ""; position: absolute; left: 3px; top: 5px; width: 9px; height: 5px;
+  border-left: 1.8px solid var(--ok); border-bottom: 1.8px solid var(--ok); transform: rotate(-45deg); }
+.pv-check li.bad { color: var(--danger); }
+.pv-check li.bad::before { content: "×"; border: 0; transform: none; top: -1px; left: 2px; width: auto; height: auto; font-size: 15px; color: var(--danger); }
+.pv-check li small { display: block; color: var(--text-3); font-size: 12px; }
+.pv-fold > button { width: 100%; border: 0; background: none; padding: 0; display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; text-align: left; color: var(--text); }
+.pv-fold > button .aside { margin-left: auto; font-weight: 400; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pv-fold .chev { width: 14px; height: 14px; color: var(--text-3); transition: transform .2s var(--ease); flex: none; }
+.pv-fold.open .chev { transform: rotate(90deg); }
+.pv-fold .inner { display: none; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+.pv-fold.open .inner { display: block; }
+.pv-refs, .pv-steps { margin: 0; padding: 0; list-style: none; }
+.pv-refs li { margin-bottom: 10px; line-height: 1.5; }
+.pv-refs a { color: var(--ink); text-decoration: none; }
+.pv-refs a:hover { text-decoration: underline; }
+.pv-refs small { display: block; color: var(--text-3); font-size: 12px; }
+.pv-steps li { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; margin-bottom: 8px; }
+.pv-steps b { font-weight: 500; color: var(--text); }
+.pv-steps .t { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pv-steps li.bad span { color: var(--danger); }
+.pv-more { border: 0; background: none; padding: 0; margin-top: 4px; color: var(--ink); font-size: 12.5px; cursor: pointer; }

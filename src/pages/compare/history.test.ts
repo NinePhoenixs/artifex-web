@@ -3,7 +3,7 @@ import type { JobListItem } from '@/api/types'
 import { groupComparisons } from './history'
 
 const job = (jobId: string, recipeId: string, topic: string, at: string): JobListItem =>
-  ({ jobId, recipeId, topic, createdAt: at, appId: 'a', status: 'success', currentStage: 'delivery', title: '', updatedAt: at })
+  ({ jobId, recipeId, topic, createdAt: at, appId: 'a', status: 'success', currentStep: 'delivery', title: '', updatedAt: at })
 
 describe('groupComparisons', () => {
   it('同一主题、一分钟内、不同配方算一组；单篇试产不算；新的在前', () => {

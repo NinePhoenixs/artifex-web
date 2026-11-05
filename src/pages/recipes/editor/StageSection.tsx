@@ -1,29 +1,30 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { BookOutlined, CloseOutlined, PlusOutlined, ToolOutlined } from '@ant-design/icons'
-import { App, Button, Card, Checkbox, Form, Mentions, Modal, Select, Tag, Tooltip, Typography } from 'antd'
+import { App, Button, Card, Checkbox, Form, Mentions, Modal, Tag, Tooltip, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { getCapability, listAgents, listCapabilities } from '@/api/endpoints'
+import { getCapability, listCapabilities } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { Agent, AppType, Capability } from '@/api/types'
+import type { Agent, AppType, Capability, StageName } from '@/api/types'
+import GrantPicker from '@/components/GrantPicker'
+import { MAX_PER_STAGE, PROMPT_MAX_LEN } from '@/constants/limits'
+import { DEFAULT_AGENT, STAGE_LABEL } from '@/constants/stage'
+import { useAgents } from '@/hooks/useAgents'
 import { brand } from '@/theme'
-import { DEFAULT_AGENT, GrantPicker, MAX_PER_STAGE, type StageKey } from './AiSection'
+import AgentSelect from './AgentSelect'
 import { findMentions, splitMentions } from './mentions'
 import PromptAssist from './PromptAssist'
 
-/** 三步，按流水线先后。动词用在标题「这一步让 AI 怎么 X」里。 */
-export const STAGE_META: Record<StageKey, { label: string; verb: string; placeholder: string }> = {
+/** 找资料 / 写 / 检查，按流水线先后。动词用在标题「这一步让 AI 怎么 X」里；步骤名见 STAGE_LABEL。 */
+const STAGE_META: Record<StageName, { verb: string; placeholder: string }> = {
   retrieval: {
-    label: '找资料',
     verb: '找资料',
     placeholder: '找什么\n围绕本次主题，找……\n\n去哪找\n优先……\n\n时效\n近……天内的优先\n\n不要\n不收没有来源的说法',
   },
   generation: {
-    label: '写',
     verb: '写',
     placeholder: '围绕「{{主题}}」写一篇……\n\n目标与读者\n写给……，读完让人觉得……\n\n写作要求\n口吻……，标题……，正文……字\n\n输出结构\n标题（3 个备选）/ 正文 / 话题标签 / 配图建议\n\n不要做的事\n· 不用绝对化用语\n· 不编造数据',
   },
   review: {
-    label: '检查',
     verb: '检查',
     placeholder: '检查清单\n1. ……\n2. ……\n3. 没有绝对化用语和违规表述\n\n不写也会查：事实有来源、没有禁用词、紧扣主题',
   },
@@ -35,7 +36,7 @@ export const STAGE_META: Record<StageKey, { label: string; verb: string; placeho
  */
 export default function StageSection({
   stage, appType, recipeName, appTypeName, children,
-}: { stage: StageKey; appType: AppType; recipeName: string; appTypeName: string; children?: ReactNode }) {
+}: { stage: StageName; appType: AppType; recipeName: string; appTypeName: string; children?: ReactNode }) {
   const meta = STAGE_META[stage]
   const form = Form.useFormInstance()
   const { message } = App.useApp()
@@ -93,7 +94,7 @@ export default function StageSection({
       <PromptBoard prompt={prompt} caps={caps} grants={[...own, ...grants]}>
       <Form.Item
         name={['aiSetting', 'prompts', stage]}
-        rules={[{ max: 20000, message: '提示词最多 20000 字' }]}
+        rules={[{ max: PROMPT_MAX_LEN, message: `提示词最多 ${PROMPT_MAX_LEN} 字` }]}
         style={{ marginBottom: 0 }}
       >
         <Mentions
@@ -185,7 +186,7 @@ function PromptBoard({ prompt, caps, grants, children }: {
  */
 function GrantChips({
   stage, appType, agent, value = [], onChange,
-}: { stage: StageKey; appType: AppType; agent?: Agent; value?: string[]; onChange?: (v: string[]) => void }) {
+}: { stage: StageName; appType: AppType; agent?: Agent; value?: string[]; onChange?: (v: string[]) => void }) {
   const form = Form.useFormInstance()
   const actionsPath = ['aiSetting', 'actions', stage]
   // 动作没有单独的输入项，preserve 才能读到直接写进表单存储的值
@@ -249,7 +250,7 @@ function GrantChips({
       </Button>
       <Modal
         open={open}
-        title={`「${STAGE_META[stage].label}」这一步带哪些能力`}
+        title={`「${STAGE_LABEL[stage]}」这一步带哪些能力`}
         okText="确定"
         cancelText="取消"
         onCancel={() => setOpen(false)}
@@ -321,50 +322,11 @@ function ActionPicker({
   )
 }
 
-/**
- * 「由谁完成」：只能从已有的 Agent 里选，不能在这里新建（Agent 在能力中心维护）。
- * 值为空串 = 平台自带（采风 / 执笔 / 校审），下拉里显示成「执笔（默认）」。
- */
-function AgentSelect({ stage, value = '', onChange }: { stage: StageKey; value?: string; onChange?: (v: string) => void }) {
-  const { data } = useQuery({ queryKey: qk.agents(), queryFn: () => listAgents() })
-  const items = (data?.items ?? []).filter((a) => a.recommendStage !== 'assist' && (a.status === 'active' || a.agentId === value))
-  const sorted = [...items].sort((a, b) => Number(b.recommendStage === stage) - Number(a.recommendStage === stage))
-  const fallback = DEFAULT_AGENT[stage]
-  return (
-    <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-      <Typography.Text type="secondary" style={{ fontSize: 13 }}>由</Typography.Text>
-      <Select
-        size="small"
-        variant="borderless"
-        popupMatchSelectWidth={false}
-        value={value || fallback}
-        onChange={(v) => onChange?.(v === fallback ? '' : v)}
-        style={{ minWidth: 96 }}
-        options={sorted.map((a) => ({
-          value: a.agentId,
-          label: a.agentId === fallback ? `${a.name}（默认）` : a.name,
-          title: `${a.description} · ${a.modelLabel}`,
-        }))}
-        optionRender={(o) => {
-          const a = sorted.find((x) => x.agentId === o.value)
-          return (
-            <div style={{ lineHeight: 1.4, padding: '2px 0' }}>
-              <div>{o.label}</div>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>{a?.modelLabel} · {a?.description}</Typography.Text>
-            </div>
-          )
-        }}
-      />
-      <Typography.Text type="secondary" style={{ fontSize: 13 }}>完成</Typography.Text>
-    </span>
-  )
-}
-
 /** 这一步实际由哪个 Agent 做（没选 = 平台自带）。 */
-function useStageAgent(stage: StageKey): Agent | undefined {
+function useStageAgent(stage: StageName): Agent | undefined {
   const form = Form.useFormInstance()
   const picked = (Form.useWatch(['aiSetting', 'agents', stage], { form, preserve: true }) as string | undefined) ?? ''
-  const { data } = useQuery({ queryKey: qk.agents(), queryFn: () => listAgents() })
+  const { data } = useAgents()
   return data?.items.find((a) => a.agentId === (picked || DEFAULT_AGENT[stage]))
 }
 

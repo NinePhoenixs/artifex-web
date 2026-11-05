@@ -7,7 +7,8 @@ import { getApp, listRecipes, selectRecipe } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { RecipeListItem } from '@/api/types'
 import { useApiError } from '@/hooks/useApiError'
-import { formatTime } from '@/pages/apps/AppListPage'
+import { brand } from '@/theme'
+import { formatDateTime } from '@/utils/time'
 import PickSystemRecipeModal from './PickSystemRecipeModal'
 
 /**
@@ -93,7 +94,7 @@ export default function RecipeListPage() {
             render: (name: string, row) => (
               <div>
                 <Typography.Text strong>{name}</Typography.Text>
-                <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 2 }}>
+                <div style={{ fontSize: 12.5, color: brand.textMuted, marginTop: 2 }}>
                   {row.description || '暂无说明'}
                 </div>
               </div>
@@ -110,7 +111,7 @@ export default function RecipeListPage() {
             dataIndex: 'updatedAt',
             width: 170,
             render: (t: string) => (
-              <span style={{ color: '#64748b' }}>{formatTime(t)}</span>
+              <span style={{ color: brand.textMuted }}>{formatDateTime(t)}</span>
             ),
           },
           {

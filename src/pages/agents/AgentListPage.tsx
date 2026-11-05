@@ -2,24 +2,18 @@ import { useState } from 'react'
 import { BookOutlined, PlusOutlined, ToolOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
-import { useQuery } from '@tanstack/react-query'
-import { listAgents } from '@/api/endpoints'
-import { qk } from '@/api/queryKeys'
-import type { Agent, StageName, AgentUsage } from '@/api/types'
+import type { Agent } from '@/api/types'
+import { USAGE_LABEL } from '@/constants/stage'
+import { useAgents } from '@/hooks/useAgents'
 import CenterTabs from '@/pages/capabilities/CenterTabs'
 import AgentDrawer from './AgentDrawer'
 
-export const STAGE_NAME: Record<StageName, string> = { retrieval: '找资料', generation: '写', review: '检查' }
-
-/** Agent 的「常用在」 */
-export const USAGE_NAME: Record<Exclude<AgentUsage, ''>, string> = { ...STAGE_NAME, assist: '写提示词' }
-
 /**
  * Agent = 一个大脑（模型）+ 角色说明 + 可选的能力。配方的每一步选一个 Agent 来做，
- * 平台自带采风、执笔、校审三个；想让某一步换模型或换身份，才在这里新建。
+ * 平台自带采风、执笔、校审、画师等；想让某一步换模型或换身份，才在这里新建。
  */
 export default function AgentListPage() {
-  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: qk.agents(), queryFn: () => listAgents() })
+  const { data, isLoading, isError, error, refetch } = useAgents()
   const [editing, setEditing] = useState<string | 'new' | null>(null)
 
   const columns: TableColumnsType<Agent> = [
@@ -51,7 +45,7 @@ export default function AgentListPage() {
       title: '常用在',
       key: 'stage',
       width: 100,
-      render: (_, a) => (a.recommendStage ? USAGE_NAME[a.recommendStage] : '不限'),
+      render: (_, a) => (a.recommendStage ? USAGE_LABEL[a.recommendStage] : '不限'),
     },
     {
       title: '配方在用',

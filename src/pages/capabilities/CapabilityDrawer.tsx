@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCapability, refreshToolActions, skillExportUrl } from '@/api/endpoints'
 import MarkdownView from '@/components/MarkdownView'
 import { qk } from '@/api/queryKeys'
-import { KIND_LABEL, ORIGIN_LABEL, STATUS_META, appTypeLabel, stageLabel } from '@/constants/capability'
+import { KIND_LABEL, ORIGIN_LABEL, STATUS_META, stageLabel } from '@/constants/capability'
 import { useApiError } from '@/hooks/useApiError'
+import { useEnums } from '@/hooks/useEnums'
 import { ActionList } from './CapabilityFormModal'
 import SkillPackage from './SkillPackage'
 
@@ -16,6 +17,7 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
   const qc = useQueryClient()
   const { message } = App.useApp()
   const handleError = useApiError()
+  const { label } = useEnums()
   const refresh = useMutation({
     mutationFn: refreshToolActions,
     onSuccess: (r) => {
@@ -44,7 +46,7 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
               <Tag color={STATUS_META[c.status].color}>{STATUS_META[c.status].label}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="适用">
-              {c.appTypes.length ? c.appTypes.map(appTypeLabel).join('、') : '通用'}
+              {c.appTypes.length ? c.appTypes.map((t) => label('appType', t)).join('、') : '通用'}
             </Descriptions.Item>
             <Descriptions.Item label="推荐阶段">{stageLabel(c.recommendStage)}</Descriptions.Item>
             <Descriptions.Item label="来源">{ORIGIN_LABEL[c.origin]}</Descriptions.Item>

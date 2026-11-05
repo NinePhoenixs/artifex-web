@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react'
 import { CaretRightOutlined } from '@ant-design/icons'
-import { Button, Card, Input, Space, Steps, Tag, Typography } from 'antd'
+import { App, Button, Card, Input, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listJobs, submitJob } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import { DONE, JOB_STATUS, JobDrawer, useJobWatch } from '@/components/JobView'
+import { JobDrawer } from '@/components/JobView'
+import { DONE, JOB_STATUS } from '@/components/jobStatus'
+import { UNTITLED, imageUrl, lastFailedStep } from '@/components/jobArtifacts'
+import CrewProgress from '@/components/crew/CrewProgress'
+import { headImage, noteText, previewContent } from '@/components/preview/content'
+import { useJobWatch } from '@/hooks/useJobWatch'
 import { useApiError } from '@/hooks/useApiError'
-import { formatTime } from '@/pages/jobs/JobListPage'
+import { formatRelativeTime } from '@/utils/time'
 import { brand } from '@/theme'
 import { sumUsage, usageText } from '@/components/usage'
+import { markdownToPlain } from '@/components/MarkdownView'
 
 /**
  * 右侧「最近一次试产」：用这份配方已保存的设置真跑一篇，看成稿和 AI 用量。
@@ -23,6 +29,7 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
 }) {
   const qc = useQueryClient()
   const handleError = useApiError()
+  const { message } = App.useApp()
   const [topic, setTopic] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
   const [asking, setAsking] = useState(false)
@@ -55,13 +62,8 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
   useEffect(() => {
     if (finished) qc.invalidateQueries({ queryKey: ['jobs'] })
   }, [finished, qc])
-  const pick = (role: string) => (job?.report?.artifacts ?? []).find((a) => a.role === role)?.content ?? ''
-  let tags: string[] = []
-  try {
-    tags = JSON.parse(pick('tags') || '[]')
-  } catch {
-    tags = []
-  }
+  const c = previewContent(job)
+  const cover = c ? (c.layout === 'article' ? headImage(c.files) : c.files[0]) : undefined
   const usage = sumUsage(runs)
   const skills = runs.flatMap((r) => r.steps).filter((s) => s.kind === 'skill' || s.kind === 'tool')
   const usedNames = [...new Set(skills.map((s) => s.name.replace(/^run_skill_script:/, '运行脚本 ')))]
@@ -107,7 +109,7 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
       <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 12 }}>
         <Typography.Text strong style={{ fontSize: 15 }}>最近一次试产</Typography.Text>
         {latest && (
-          <Typography.Text type="secondary" style={{ marginLeft: 'auto', fontSize: 12 }}>{formatTime(latest.createdAt)}</Typography.Text>
+          <Typography.Text type="secondary" style={{ marginLeft: 'auto', fontSize: 12 }}>{formatRelativeTime(latest.createdAt)}</Typography.Text>
         )}
       </div>
 
@@ -121,32 +123,37 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
       ) : (
         <>
           {running && job && (
-            <Steps
-              size="small"
-              direction="vertical"
-              current={{ material: 0, generation: 1, review: 2, delivery: 3 }[job.currentStage as string] ?? 0}
-              items={[{ title: '找资料' }, { title: '写' }, { title: '检查' }, { title: '交付' }]}
-              style={{ marginBottom: 8 }}
-            />
+            <div style={{ margin: '0 -8px 12px' }}>
+              <CrewProgress job={job} runs={runs} size="sm" />
+            </div>
           )}
-          {finished && job?.status === 'success' && (
-            <>
-              <Typography.Title level={5} style={{ margin: '0 0 8px' }}>{pick('title')}</Typography.Title>
-              <Typography.Paragraph ellipsis={{ rows: 4 }} style={{ color: '#3a3a3c', marginBottom: 10 }}>
-                {pick('main')}
-              </Typography.Paragraph>
-              {tags.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  {tags.slice(0, 5).map((t) => <Tag key={t} variant="filled">#{t}</Tag>)}
-                </div>
+          {finished && job?.status === 'success' && c && (
+            <div
+              style={{
+                display: 'grid', gap: 12, marginBottom: 12, padding: 12, borderRadius: 10, background: '#fff',
+                gridTemplateColumns: c.layout === 'note' && cover ? '84px minmax(0, 1fr)' : '1fr',
+              }}
+            >
+              {cover && (
+                <img
+                  src={imageUrl(cover)}
+                  alt={cover.caption ?? ''}
+                  style={{ width: '100%', aspectRatio: c.layout === 'note' ? '3 / 4' : '16 / 7', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                />
               )}
-            </>
+              <div style={{ minWidth: 0 }}>
+                <Typography.Text strong style={{ display: 'block', fontSize: 14.5, lineHeight: 1.45, marginBottom: 6 }}>{c.title || UNTITLED}</Typography.Text>
+                <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ fontSize: 13, margin: 0 }}>
+                  {markdownToPlain(c.body.replace(/!\[[^\]]*\]\(image:\d+\)/g, ''))}
+                </Typography.Paragraph>
+              </div>
+            </div>
           )}
           {finished && job && job.status !== 'success' && (
             <Typography.Paragraph>
               <Tag color={JOB_STATUS[job.status].color}>{JOB_STATUS[job.status].label}</Tag>
               <Typography.Text type="secondary">
-                {(job.report?.stages ?? []).find((s) => !s.success)?.errorMsg ?? ''}
+                {lastFailedStep(job)?.errorMsg ?? ''}
               </Typography.Text>
             </Typography.Paragraph>
           )}
@@ -154,9 +161,19 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
             <Typography.Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
               {running ? '正在产…' : usageText(usage)}
             </Typography.Text>
-            <Button type="link" size="small" style={{ marginLeft: 'auto', paddingRight: 0 }} onClick={() => setViewing(latest.jobId)}>
-              看全文
-            </Button>
+            <Space size={8} style={{ marginLeft: 'auto' }}>
+              {finished && c?.layout === 'note' && (
+                <Button
+                  size="small"
+                  onClick={() => navigator.clipboard.writeText(noteText(c)).then(() => message.success('已复制标题 + 正文 + 话题'), () => message.error('复制失败，浏览器没给剪贴板权限'))}
+                >
+                  复制文案
+                </Button>
+              )}
+              <Button size="small" type={job?.status === 'success' ? 'primary' : 'default'} onClick={() => setViewing(latest.jobId)}>
+                {job?.status === 'success' ? '看成品' : running ? '看进度' : '看详情'}
+              </Button>
+            </Space>
           </div>
           {skills.length > 0 && (
             <Typography.Paragraph type="secondary" style={{ fontSize: 12, margin: '8px 0 0' }}>

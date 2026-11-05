@@ -6,7 +6,9 @@ import { useParams } from 'react-router-dom'
 import { listApps, listJobs } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { JobListItem } from '@/api/types'
-import { DONE, JOB_STATUS, JobDrawer } from '@/components/JobView'
+import { JobDrawer } from '@/components/JobView'
+import { DONE, JOB_STATUS } from '@/components/jobStatus'
+import { formatRelativeTime } from '@/utils/time'
 
 /**
  * 生产记录：最近 100 条，新的在前。点一条看成稿与 AI 做了什么。
@@ -54,7 +56,7 @@ export default function JobListPage() {
       dataIndex: 'createdAt',
       width: 160,
       render: (t: string) => (
-        <Typography.Text type="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTime(t)}</Typography.Text>
+        <Typography.Text type="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatRelativeTime(t)}</Typography.Text>
       ),
     },
   ]
@@ -87,12 +89,4 @@ export default function JobListPage() {
       <JobDrawer jobId={viewing} onClose={() => setViewing(null)} />
     </>
   )
-}
-
-/** 今天的只显示时分，其余显示月日 + 时分。 */
-export function formatTime(iso: string) {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  return d.toDateString() === new Date().toDateString() ? `今天 ${hm}` : `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`
 }

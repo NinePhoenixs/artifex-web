@@ -1,4 +1,4 @@
-import type { CapAppType, Capability, CreateCapabilityRequest, UpdateCapabilityRequest } from '@/api/types'
+import type { AppType, Capability, CreateCapabilityRequest, UpdateCapabilityRequest } from '@/api/types'
 
 /** 演示数据不做真实扫描 */
 const NO_SCAN = { scripts: 0, blocked: false, findings: [] }
@@ -74,7 +74,7 @@ export function handleCapabilityMock(
 
   if (!id && method === 'GET') {
     const q = new URLSearchParams(qs)
-    const appType = q.get('appType') as CapAppType | null
+    const appType = q.get('appType') as AppType | null
     const kind = q.get('kind')
     let list = caps.filter((c) => !kind || c.kind === kind)
     const before = list.length

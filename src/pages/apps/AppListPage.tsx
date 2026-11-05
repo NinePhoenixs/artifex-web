@@ -7,6 +7,8 @@ import { listApps } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { AppListItem } from '@/api/types'
 import { useEnums } from '@/hooks/useEnums'
+import { brand } from '@/theme'
+import { formatDateTime } from '@/utils/time'
 import AppFormModal from './AppFormModal'
 
 /**
@@ -124,14 +126,14 @@ export default function AppListPage() {
                 style={{
                   display: 'flex',
                   fontSize: 12,
-                  color: '#94a3b8',
+                  color: brand.textMuted,
                   borderTop: '1px solid #f1f5f9',
                   paddingTop: 12,
                 }}
               >
                 <span>{app.recipeCount} 份配方</span>
                 <span style={{ marginLeft: 'auto' }}>
-                  更新于 {formatTime(app.updatedAt)}
+                  更新于 {formatDateTime(app.updatedAt)}
                 </span>
               </div>
             </Card>
@@ -149,13 +151,4 @@ export default function AppListPage() {
       />
     </div>
   )
-}
-
-/** 后端返回 ISO 8601 带时区，直接能 new Date()。 */
-export function formatTime(iso: string): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }

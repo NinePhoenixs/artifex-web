@@ -10,16 +10,10 @@ body,
 }
 
 body {
-  background: #F6F4EF;
-  color: #0f172a;
+  background: #F6F4EF; /* 与 theme.ts brand.paper / brand.text 一致 */
+  color: #1D1D1F;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
     'Segoe UI', sans-serif;
-}
-
-.afx-mono {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: #94a3b8;
 }
 
 /* 配方提示词板：输入框垫在高亮层上面，两层排版必须一字不差（见 StageSection PromptBoard） */

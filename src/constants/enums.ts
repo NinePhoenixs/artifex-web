@@ -33,6 +33,10 @@ export const FALLBACK_ENUMS: EnumDict = {
     { value: 'last_year', label: '近一年' },
     { value: 'custom', label: '自定义' },
   ],
+  layout: [
+    { value: 'note', label: '小红书笔记' },
+    { value: 'article', label: '文章' },
+  ],
 }
 
 // ---------- 后端不提供的补充文案 ----------
@@ -53,4 +57,10 @@ export const SOURCE_MODE_DESC: Record<string, string> = {
   automatic: '系统按主题检索资料，本次提供的资料一并使用',
   user_first: '优先用你提供的资料，不足时再检索补充',
   user_only: '只用你提供的资料，不联网检索',
+}
+
+/** 版式的说明。 */
+export const LAYOUT_DESC: Record<string, string> = {
+  note: '短文分点、带 emoji，3:4 竖图一组，图和字分开放',
+  article: '长文分小标题，横图插在正文里，可带表格和列表',
 }

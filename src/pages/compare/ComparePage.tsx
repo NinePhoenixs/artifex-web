@@ -4,9 +4,15 @@ import { App, Button, Checkbox, Input, Select, Skeleton, Tag, Typography } from 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getRecipe, listCapabilities, listJobs, listRecipes, submitJob } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import { DONE, JobDrawer, useJobWatch } from '@/components/JobView'
+import { JobDrawer } from '@/components/JobView'
+import { DONE } from '@/components/jobStatus'
+import { UNTITLED, jobArticle } from '@/components/jobArtifacts'
+import MarkdownView from '@/components/MarkdownView'
+import { JOB_STEP_LABEL } from '@/constants/stage'
 import { useApiError } from '@/hooks/useApiError'
+import { useJobWatch } from '@/hooks/useJobWatch'
 import { brand } from '@/theme'
+import { formatShortDateTime } from '@/utils/time'
 import { groupComparisons } from './history'
 
 /**
@@ -16,7 +22,6 @@ import { groupComparisons } from './history'
  */
 
 const MAX = 4
-const STEP: Record<string, string> = { material: '找资料', generation: '写', review: '检查', delivery: '交付' }
 
 interface Run {
   topic: string
@@ -81,7 +86,7 @@ export default function ComparePage() {
             }}
             options={history.map((g) => ({
               value: historyKey(g),
-              label: `${g.topic} · ${formatAt(g.createdAt)} · ${Object.keys(g.jobs).length} 份`,
+              label: `${g.topic} · ${formatShortDateTime(g.createdAt)} · ${Object.keys(g.jobs).length} 份`,
             }))}
           />
         )}
@@ -121,10 +126,6 @@ export default function ComparePage() {
 }
 
 const historyKey = (g: Run) => Object.values(g.jobs).sort().join(',')
-const formatAt = (iso: string) => {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 function Column({ appId, recipeId, jobId, onOpen }: {
   appId: string
@@ -138,9 +139,10 @@ function Column({ appId, recipeId, jobId, onOpen }: {
 
   const names = [...new Set(Object.values(recipe?.aiSetting?.grants ?? {}).flat())]
     .map((id) => caps?.items.find((c) => c.capabilityId === id)?.name ?? id)
-  const pick = (role: string) => (job?.report?.artifacts ?? []).find((a) => a.role === role)?.content ?? ''
   const done = Boolean(job && DONE.includes(job.status))
-  const body = pick('main')
+  const article = jobArticle(job)
+  const body = article.body
+  const step = (JOB_STEP_LABEL as Partial<Record<string, string>>)[job?.currentStep ?? '']
   const seconds = Math.round(runs.reduce((s, r) => s + r.costMs, 0) / 1000)
 
   return (
@@ -155,11 +157,11 @@ function Column({ appId, recipeId, jobId, onOpen }: {
 
       <div style={{ marginTop: 12, minHeight: 80 }}>
         {!jobId && null}
-        {jobId && !done && <Typography.Text type="secondary">正在{STEP[job?.currentStage ?? ''] ?? '排队'}…</Typography.Text>}
+        {jobId && !done && <Typography.Text type="secondary">正在{step ?? '排队'}…</Typography.Text>}
         {done && (body ? (
           <>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>{pick('title')}</Typography.Text>
-            <div style={{ fontSize: 13.5, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: '#3a3a3c' }}>{body}</div>
+            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>{article.title || UNTITLED}</Typography.Text>
+            <div style={{ fontSize: 13.5, color: '#3a3a3c' }}><MarkdownView text={body} /></div>
           </>
         ) : (
           <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>没写出来</Typography.Text>
