@@ -7,7 +7,9 @@ import { qk } from '@/api/queryKeys'
 import type { AppListItem, AppType, EnumOption } from '@/api/types'
 import { APP_TYPE_DESC } from '@/constants/enums'
 import { useApiError } from '@/hooks/useApiError'
+import { DESCRIPTION_MAX_LEN, LONG_NAME_MAX_LEN } from '@/constants/limits'
 import { useEnums } from '@/hooks/useEnums'
+import { brand } from '@/theme'
 
 interface Values {
   appType: AppType
@@ -94,7 +96,7 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
           label="应用名称"
           rules={[
             { required: true, message: '请填写应用名称' },
-            { max: 128, message: '最多 128 字' },
+            { max: LONG_NAME_MAX_LEN, message: `最多 ${LONG_NAME_MAX_LEN} 字` },
           ]}
         >
           <Input placeholder="例如：行业洞察内容中心" allowClear />
@@ -103,7 +105,7 @@ export default function AppFormModal({ open, editing, onClose }: Props) {
         <Form.Item
           name="description"
           label="应用说明"
-          rules={[{ max: 255, message: '最多 255 字' }]}
+          rules={[{ max: DESCRIPTION_MAX_LEN, message: `最多 ${DESCRIPTION_MAX_LEN} 字` }]}
         >
           <Input.TextArea
             rows={2}
@@ -167,7 +169,7 @@ function TypePicker({
             }}
           >
             <div style={{ fontWeight: 600 }}>{opt.label}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: brand.textMuted, marginTop: 2 }}>
               {opt.available === false ? '敬请期待' : (APP_TYPE_DESC[opt.value] ?? '')}
             </div>
           </div>

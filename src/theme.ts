@@ -10,6 +10,10 @@ export const brand = {
   gold: '#D4A63A',
   line: '#E7E3DA',
   text: '#1D1D1F',
+  /** 次要文字（日期、说明），与 antd 的 colorTextSecondary 一致 */
+  textMuted: 'rgba(0,0,0,.45)',
+  /** 失败、出错 */
+  danger: '#C2412D',
 }
 
 export const theme: ThemeConfig = {
@@ -18,7 +22,7 @@ export const theme: ThemeConfig = {
     colorInfo: brand.ink,
     colorLink: brand.ink,
     colorSuccess: '#2E7D4F',
-    colorError: '#C2412D',
+    colorError: brand.danger,
     colorTextBase: brand.text,
     colorBorderSecondary: brand.line,
     borderRadius: 8,

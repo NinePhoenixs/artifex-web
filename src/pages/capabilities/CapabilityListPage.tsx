@@ -5,16 +5,15 @@ import type { TableColumnsType } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listCapabilities, updateCapability } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { CapAppType, Capability, CapabilityKind, ListCapabilitiesQuery } from '@/api/types'
+import type { AppType, Capability, CapabilityKind, ListCapabilitiesQuery } from '@/api/types'
 import {
-  CAP_APP_TYPES,
   KIND_LABEL,
   ORIGIN_LABEL,
   STATUS_META,
-  appTypeLabel,
   stageLabel,
 } from '@/constants/capability'
 import { useApiError } from '@/hooks/useApiError'
+import { useEnums } from '@/hooks/useEnums'
 import CapabilityDrawer from './CapabilityDrawer'
 import CapabilityFormModal from './CapabilityFormModal'
 import CenterTabs from './CenterTabs'
@@ -29,7 +28,9 @@ export default function CapabilityListPage() {
   const { message } = App.useApp()
   const onError = useApiError()
   const client = useQueryClient()
-  const [appType, setAppType] = useState<CapAppType | typeof ALL>(ALL)
+  const enums = useEnums()
+  const appTypeLabel = (t: AppType) => enums.label('appType', t)
+  const [appType, setAppType] = useState<AppType | typeof ALL>(ALL)
   const [kind, setKind] = useState<CapabilityKind | typeof ALL>(ALL)
   const [formOpen, setFormOpen] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
@@ -74,7 +75,7 @@ export default function CapabilityListPage() {
       title: '适用',
       dataIndex: 'appTypes',
       width: 140,
-      render: (types: CapAppType[]) =>
+      render: (types: AppType[]) =>
         types.length === 0 ? (
           <Tag>通用</Tag>
         ) : (
@@ -154,8 +155,8 @@ export default function CapabilityListPage() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: 16, flexWrap: 'wrap' }}>
           <Segmented
             value={appType}
-            onChange={(v) => setAppType(v as CapAppType | typeof ALL)}
-            options={[{ value: ALL, label: '全部' }, ...CAP_APP_TYPES]}
+            onChange={(v) => setAppType(v as AppType | typeof ALL)}
+            options={[{ value: ALL, label: '全部' }, ...enums.options('appType')]}
           />
           <Segmented
             value={kind}

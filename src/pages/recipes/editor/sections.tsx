@@ -3,8 +3,10 @@ import {
 } from 'antd'
 import type { FormInstance } from 'antd'
 import type { EnumOption } from '@/api/types'
-import { SOURCE_MODE_DESC } from '@/constants/enums'
+import { LAYOUT_DESC, SOURCE_MODE_DESC } from '@/constants/enums'
+import { DESCRIPTION_MAX_LEN, LONG_NAME_MAX_LEN } from '@/constants/limits'
 import { useEnums } from '@/hooks/useEnums'
+import { brand } from '@/theme'
 import { needsCustom } from './fieldVisibility'
 
 const sectionTitle = (title: string, desc: string) => (
@@ -17,21 +19,29 @@ const sectionTitle = (title: string, desc: string) => (
 // ---------------- ① 基本信息 ----------------
 
 export function BasicSection() {
+  const { dict } = useEnums()
   return (
     <>
-      {sectionTitle('基本信息', '名称和说明会显示在配方列表里。')}
+      {sectionTitle('基本信息', '名称、版式和说明。版式决定成品做成什么样子。')}
       <Form.Item
         name="name"
         label="配方名称"
-        rules={[{ required: true, message: '请填写配方名称' }, { max: 128, message: '最多 128 字' }]}
+        rules={[{ required: true, message: '请填写配方名称' }, { max: LONG_NAME_MAX_LEN, message: `最多 ${LONG_NAME_MAX_LEN} 字` }]}
         extra="如：家居好物 · 小红书种草"
       >
         <Input allowClear />
       </Form.Item>
       <Form.Item
+        name="layout"
+        label="版式"
+        extra="同一类内容换个渠道发，复制一份配方换个版式即可。"
+      >
+        <CardPicker options={dict.layout} desc={LAYOUT_DESC} columns={2} />
+      </Form.Item>
+      <Form.Item
         name="description"
         label="配方说明"
-        rules={[{ max: 255, message: '最多 255 字' }]}
+        rules={[{ max: DESCRIPTION_MAX_LEN, message: `最多 ${DESCRIPTION_MAX_LEN} 字` }]}
         extra="选填，写这份配方适合什么内容。"
       >
         <Input.TextArea rows={3} />
@@ -56,7 +66,7 @@ export function MaterialSection({ form, bare }: { form: FormInstance; bare?: boo
         label="资料从哪来"
         rules={[{ required: true, message: '请选择资料获取方式' }]}
       >
-        <SourceModePicker options={dict.sourceMode} />
+        <CardPicker options={dict.sourceMode} desc={SOURCE_MODE_DESC} columns={3} />
       </Form.Item>
 
       <Row gutter={16}>
@@ -126,12 +136,12 @@ export function MaterialSection({ form, bare }: { form: FormInstance; bare?: boo
   )
 }
 
-/** 大卡片单选。语义是后端的三选一，不是选搜索引擎。 */
-function SourceModePicker({
-  value, onChange, options,
-}: { value?: string; onChange?: (v: string) => void; options: EnumOption[] }) {
+/** 大卡片单选：资料从哪来、版式。 */
+function CardPicker({
+  value, onChange, options, desc, columns,
+}: { value?: string; onChange?: (v: string) => void; options: EnumOption[]; desc: Record<string, string>; columns: number }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 12 }}>
       {options.map((opt) => {
         const active = value === opt.value
         return (
@@ -145,8 +155,8 @@ function SourceModePicker({
             }}
           >
             <div style={{ fontWeight: 600 }}>{opt.label}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.5 }}>
-              {SOURCE_MODE_DESC[opt.value] ?? ''}
+            <div style={{ fontSize: 12, color: brand.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              {desc[opt.value] ?? ''}
             </div>
           </div>
         )

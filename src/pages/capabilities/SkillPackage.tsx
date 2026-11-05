@@ -61,7 +61,7 @@ export default function SkillPackage({ files, scan }: { files: SkillFile[]; scan
 }
 
 const LEVEL = {
-  high: { icon: <ExclamationCircleFilled />, color: '#C2412D', label: '高危' },
+  high: { icon: <ExclamationCircleFilled />, color: brand.danger, label: '高危' },
   medium: { icon: <WarningFilled />, color: '#B7791F', label: '可疑' },
 } as const
 

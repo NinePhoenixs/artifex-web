@@ -1,25 +1,18 @@
 import type React from 'react'
 import { Checkbox, Tag, Typography } from 'antd'
-import type { Capability, StageGrants } from '@/api/types'
+import type { Capability, StageName } from '@/api/types'
 import { KIND_LABEL, STATUS_META } from '@/constants/capability'
+import { MAX_PER_STAGE } from '@/constants/limits'
 import { brand } from '@/theme'
 
-export type StageKey = keyof StageGrants
-
-/** 每一步最多带几个能力（Agent 自带 + 配方额外，合计），与后端一致。 */
-export const MAX_PER_STAGE = 8
-
-/** 配方步骤没选 Agent 时由谁做，与后端 domain.DefaultAgentFor 一致。 */
-export const DEFAULT_AGENT: Record<StageKey, string> = { retrieval: 'caifeng', generation: 'zhibi', review: 'jiaoshen' }
-
 /**
- * 一个阶段的能力清单（勾选）。勾选顺序就是装载顺序；推荐给本阶段的排前面。
+ * 一个阶段的能力清单（勾选），配方的各步与 Agent 的自带能力共用。勾选顺序就是装载顺序；推荐给本阶段的排前面。
  * 停用、连接异常的也列出来并可勾选：先授权，启用或恢复后自动生效。
  */
-export function GrantPicker({
+export default function GrantPicker({
   stage, caps, value = [], onChange, renderExtra, max = MAX_PER_STAGE,
 }: {
-  stage: StageKey
+  stage: StageName
   caps: Capability[]
   value?: string[]
   onChange?: (v: string[]) => void

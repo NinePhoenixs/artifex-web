@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeftOutlined, CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons'
 import { Alert, App, Badge, Button, Card, Form, Skeleton, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,21 +8,26 @@ import {
   getApp, getRecipe, markRecipeReady, selectRecipe, updateRecipe,
 } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { Recipe, UpdateRecipeRequest } from '@/api/types'
+import type { ImageRatio, Layout, Recipe, UpdateRecipeRequest } from '@/api/types'
+import { STAGE_LABEL } from '@/constants/stage'
 import { useApiError } from '@/hooks/useApiError'
 import { BasicSection, MaterialSection, ReviewSection } from './sections'
 import StageSection from './StageSection'
+import IllustrationSection from './IllustrationSection'
 import TrialCard from './TrialCard'
 import { findVariables } from './variables'
 import { type SectionKey, formFieldOf, sectionOfField } from './fieldVisibility'
+import { ratioAfterLayoutChange, toFormValues, toPayload } from './formMapping'
+import { useEnums } from '@/hooks/useEnums'
 import { brand } from '@/theme'
 
-/** 左侧分类：三步是主角，每步 = 提示词 + 带哪些能力 + 这一步自己的设置。 */
+/** 左侧分类：各步是主角，每步 = 提示词 + 带哪些能力 + 这一步自己的设置；配图可关。 */
 const SECTIONS: { key: SectionKey; label: string; group?: string }[] = [
   { key: 'basic', label: '基本信息' },
-  { key: 'retrieval', label: '找资料', group: '三步' },
-  { key: 'generation', label: '写', group: '三步' },
-  { key: 'review', label: '检查', group: '三步' },
+  { key: 'retrieval', label: STAGE_LABEL.retrieval, group: '步骤' },
+  { key: 'generation', label: STAGE_LABEL.generation, group: '步骤' },
+  { key: 'review', label: STAGE_LABEL.review, group: '步骤' },
+  { key: 'illustration', label: STAGE_LABEL.illustration, group: '步骤' },
 ]
 
 /**
@@ -41,6 +46,8 @@ export default function RecipeEditorPage() {
   const handleError = useApiError()
 
   const [form] = Form.useForm()
+  const { label } = useEnums()
+  const layout = (Form.useWatch('layout', form) as Layout | undefined) ?? 'note'
   const [section, setSection] = useState<SectionKey>('generation')
   const [errorSections, setErrorSections] = useState<Set<SectionKey>>(new Set())
   const [readyHint, setReadyHint] = useState<string | null>(null)
@@ -57,8 +64,11 @@ export default function RecipeEditorPage() {
     enabled: Boolean(appId && recipeId),
   })
 
+  const prevLayout = useRef<Layout>('note')
   useEffect(() => {
-    if (recipe) form.setFieldsValue(toFormValues(recipe))
+    if (!recipe) return
+    form.setFieldsValue(toFormValues(recipe))
+    prevLayout.current = recipe.layout ?? 'note'
   }, [recipe, form])
 
   const isSelected = Boolean(recipe && app?.selectedRecipeId === recipe.recipeId)
@@ -178,7 +188,11 @@ export default function RecipeEditorPage() {
   )
 
   const grants = Form.useWatch(['aiSetting', 'grants'], form) as Record<string, string[]> | undefined
-  const grantCount = (k: SectionKey) => (grants?.[k]?.length ? `${grants[k].length} 个能力` : '')
+  const illustration = Form.useWatch('illustration', form) as Recipe['illustration'] | undefined
+  const grantCount = (k: SectionKey) => {
+    if (k === 'illustration') return illustration?.enabled ? `${illustration.imageCount} 张` : '关'
+    return grants?.[k]?.length ? `${grants[k].length} 个能力` : ''
+  }
 
   if (isLoading || !recipe) {
     return <Card><Skeleton active paragraph={{ rows: 8 }} /></Card>
@@ -204,6 +218,9 @@ export default function RecipeEditorPage() {
         ) : (
           <Tag variant="filled">草稿</Tag>
         )}
+        <Tag variant="outlined" style={{ cursor: 'pointer' }} onClick={() => setSection('basic')}>
+          {label('layout', layout)}
+        </Tag>
         <Space style={{ marginLeft: 'auto' }}>
           <Button loading={save.isPending} onClick={() => submit('save')} disabled={pending}>
             保存
@@ -234,7 +251,7 @@ export default function RecipeEditorPage() {
         <Card style={{ position: 'sticky', top: 72 }} styles={{ body: { padding: 8 } }}>
           {navItems.map((s, i) => (
             <div key={s.key}>
-              {/* 基本信息与三步之间留一道细线，不写分组名 */}
+              {/* 基本信息与各步之间留一道细线，不写分组名 */}
               {s.group && !navItems[i - 1]?.group && (
                 <div style={{ borderTop: `1px solid ${brand.line}`, margin: '6px 12px' }} />
               )}
@@ -254,7 +271,7 @@ export default function RecipeEditorPage() {
                 {s.label}
                 <span style={{ marginLeft: 'auto' }}>
                   {s.hasError ? (
-                    <Badge count={<ExclamationCircleFilled style={{ color: '#C2412D' }} />} />
+                    <Badge count={<ExclamationCircleFilled style={{ color: brand.danger }} />} />
                   ) : s.group ? (
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>{grantCount(s.key)}</Typography.Text>
                   ) : (
@@ -266,7 +283,20 @@ export default function RecipeEditorPage() {
           ))}
         </Card>
 
-        <Form form={form} layout="vertical" requiredMark scrollToFirstError>
+        <Form
+          form={form}
+          layout="vertical"
+          requiredMark
+          scrollToFirstError
+          onValuesChange={(changed: { layout?: Layout }) => {
+            // 换版式时，图片比例还是旧版式的默认值就跟着换
+            if (!changed.layout) return
+            const ratio = form.getFieldValue(['illustration', 'imageRatio']) as ImageRatio | undefined
+            const next = ratioAfterLayoutChange(prevLayout.current, changed.layout, ratio)
+            if (next !== ratio) form.setFieldValue(['illustration', 'imageRatio'], next)
+            prevLayout.current = changed.layout
+          }}
+        >
           {/* 用 display:none 而不是卸载——保持所有字段挂载，这样 setFields 能标红当前没显示的块 */}
           <Card style={{ display: section === 'basic' ? 'block' : 'none' }}>
             <BasicSection />
@@ -284,6 +314,9 @@ export default function RecipeEditorPage() {
               <ReviewSection bare />
             </StageSection>
           </div>
+          <div style={{ display: section === 'illustration' ? 'block' : 'none' }}>
+            <IllustrationSection />
+          </div>
         </Form>
 
         <div style={{ position: 'sticky', top: 72 }}>
@@ -297,56 +330,4 @@ export default function RecipeEditorPage() {
       </div>
     </div>
   )
-}
-
-function toFormValues(r: Recipe) {
-  return {
-    name: r.name,
-    description: r.description,
-    materialSpec: r.materialSpec,
-    reviewPolicy: r.reviewPolicy,
-    aiSetting: r.aiSetting,
-  }
-}
-
-/** 全量提交：状态、类型、系统管理字段不在其中。 */
-function toPayload(
-  values: Record<string, unknown>,
-  recipe: Recipe | undefined,
-): UpdateRecipeRequest {
-  return {
-    name: String(values.name ?? ''),
-    description: String(values.description ?? ''),
-    materialSpec: values.materialSpec as UpdateRecipeRequest['materialSpec'],
-    reviewPolicy: values.reviewPolicy as UpdateRecipeRequest['reviewPolicy'],
-    aiSetting: toAiSetting(values.aiSetting, recipe),
-  }
-}
-
-/** AI 装配原样提交；三个阶段的清单缺省补成空数组，没选 Agent 是空串（= 平台自带）。 */
-function toAiSetting(v: unknown, recipe: Recipe | undefined): UpdateRecipeRequest['aiSetting'] {
-  const a = (v ?? recipe?.aiSetting) as Recipe['aiSetting'] | undefined
-  if (!a) return undefined
-  return {
-    agents: {
-      retrieval: a.agents?.retrieval ?? '',
-      generation: a.agents?.generation ?? '',
-      review: a.agents?.review ?? '',
-    },
-    grants: {
-      retrieval: a.grants?.retrieval ?? [],
-      generation: a.grants?.generation ?? [],
-      review: a.grants?.review ?? [],
-    },
-    prompts: {
-      retrieval: a.prompts?.retrieval ?? '',
-      generation: a.prompts?.generation ?? '',
-      review: a.prompts?.review ?? '',
-    },
-    actions: {
-      retrieval: a.actions?.retrieval ?? {},
-      generation: a.actions?.generation ?? {},
-      review: a.actions?.review ?? {},
-    },
-  }
 }

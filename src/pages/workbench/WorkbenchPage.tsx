@@ -6,10 +6,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { listApps, listCapabilities, listJobs } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { JobListItem } from '@/api/types'
-import { DONE, JOB_STATUS, JobDrawer } from '@/components/JobView'
+import { JobDrawer } from '@/components/JobView'
+import { DONE, JOB_STATUS } from '@/components/jobStatus'
 import AppFormModal from '@/pages/apps/AppFormModal'
-import { formatTime } from '@/pages/jobs/JobListPage'
 import { brand } from '@/theme'
+import { formatRelativeTime } from '@/utils/time'
 
 /**
  * 工作台：进来先看今天产了多少、正在产什么、最近产了什么，再从应用进去改配方。
@@ -44,7 +45,7 @@ export default function WorkbenchPage() {
             今天产出 <Typography.Text strong>{today.filter((j) => j.status === 'success').length}</Typography.Text> 篇
             {running.length > 0 && <>，正在产 <Typography.Text strong>{running.length}</Typography.Text> 篇</>}
             {today.some((j) => j.status === 'failed') && (
-              <>，失败 <Typography.Text strong style={{ color: '#C2412D' }}>{today.filter((j) => j.status === 'failed').length}</Typography.Text> 篇</>
+              <>，失败 <Typography.Text strong style={{ color: brand.danger }}>{today.filter((j) => j.status === 'failed').length}</Typography.Text> 篇</>
             )}
             。
           </Typography.Text>
@@ -148,7 +149,7 @@ function JobRow({ job: j, app, onClick }: { job: JobListItem; app: string; onCli
       </Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>{app}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12, flexShrink: 0, width: 92, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-        {formatTime(j.createdAt)}
+        {formatRelativeTime(j.createdAt)}
       </Typography.Text>
     </div>
   )

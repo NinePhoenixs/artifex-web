@@ -31,6 +31,7 @@ import type {
   AiProvider,
   ModelInput,
   ModelTestResult,
+  PipelineStage,
   ProviderInput,
   StageName,
 } from './types'
@@ -130,7 +131,7 @@ export const getAgent = (agentId: string) => api.get<Agent>(`/v1/agents/${agentI
 export const createAgent = (body: AgentInput) => api.post<Agent>('/v1/agents', body)
 export const updateAgent = (agentId: string, body: AgentInput) => api.patch<Agent>(`/v1/agents/${agentId}`, body)
 /** 试一下：同步等 AI 跑完，免费模型可能要一两分钟 */
-export const tryAgent = (agentId: string, body: { stage: 'retrieval' | 'generation'; task: string; topic: string }) =>
+export const tryAgent = (agentId: string, body: { stage: Exclude<PipelineStage, 'review'>; task: string; topic: string }) =>
   api.post<AgentTryResult>(`/v1/agents/${agentId}/try`, body)
 
 /** 某个生产任务里 AI 做了什么：每次阶段运行及其步骤 */
@@ -144,6 +145,9 @@ export const listAiRuns = (bizId: string, bizType = 'production') =>
 export const submitJob = (body: SubmitJobRequest) => api.post<ProductionJob>('/v1/production-jobs', body)
 
 export const getJob = (jobId: string) => api.get<ProductionJob>(`/v1/production-jobs/${jobId}`)
+
+/** 一个任务全部画好的图打成 zip 的下载地址 */
+export const jobImagesZipUrl = (jobId: string) => apiUrl(`/v1/production-jobs/${encodeURIComponent(jobId)}/images.zip`)
 
 /** 最近的任务，新的在前；appId 为空 = 全部应用 */
 export const listJobs = (q: { appId?: string; limit?: number } = {}) => {

@@ -11,6 +11,7 @@ import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import type { AiModel, AiProvider, ModelTestResult, ProviderInput } from '@/api/types'
 import { useApiError } from '@/hooks/useApiError'
+import { NAME_MAX_LEN } from '@/constants/limits'
 import CenterTabs from '@/pages/capabilities/CenterTabs'
 
 /**
@@ -89,6 +90,7 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
       render: (_, m) => (
         <div>
           <Typography.Text strong>{m.label}</Typography.Text>
+          {m.modality === 'image' && <Tag style={{ marginLeft: 8 }}>图片</Tag>}
           <Typography.Text type="secondary" code style={{ marginLeft: 8, fontSize: 12 }}>{m.name}</Typography.Text>
         </div>
       ),
@@ -97,13 +99,15 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
       title: '计费',
       key: 'billing',
       width: 200,
-      render: (_, m) => (m.billing === 'metered' ? (
+      render: (_, m) => (m.billing !== 'metered' ? BILLING_LABEL[m.billing] : (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          按量 · 输入 {m.inputPricePer1k} / 输出 {m.outputPricePer1k} 元每千 token
+          {m.modality === 'image'
+            ? `按量 · ${m.pricePerImage} 元每张`
+            : `按量 · 输入 ${m.inputPricePer1k} / 输出 ${m.outputPricePer1k} 元每千 token`}
         </span>
-      ) : BILLING_LABEL[m.billing]),
+      )),
     },
-    { title: '思考模式', dataIndex: 'disableThinking', width: 90, render: (off: boolean) => (off ? '关' : '开') },
+    { title: '思考模式', dataIndex: 'disableThinking', width: 90, render: (off: boolean, m: AiModel) => (m.modality === 'image' ? '—' : off ? '关' : '开') },
     { title: 'Agent 在用', dataIndex: 'usedByAgents', width: 110, align: 'right' },
     {
       title: '状态',
@@ -224,7 +228,7 @@ function ProviderModal({ value, onClose }: { value: AiProvider | 'new' | null; o
         : { ...(value as AiProvider), apiKey: '' })}>
       <Form form={form} layout="vertical" onFinish={submit} requiredMark={false}>
         <Form.Item name="name" label="厂商名" rules={[{ required: true, message: '请填写厂商名' }]}>
-          <Input placeholder="如：DeepSeek" maxLength={64} />
+          <Input placeholder="如：DeepSeek" maxLength={NAME_MAX_LEN} />
         </Form.Item>
         <Form.Item name="baseUrl" label="接口地址" rules={[{ required: true, message: '请填写接口地址' }]}
           extra="厂商文档里 OpenAI 兼容接口的地址，一般以 /v1 或 /v3 结尾">
@@ -260,7 +264,7 @@ const BILLING_LABEL: Record<AiModel['billing'], string> = { free: '免费', plan
 const BILLING_HINT: Record<AiModel['billing'], string> = {
   free: '不算钱，生产详情里只显示 token 和用时',
   plan: '如火山方舟 Agent Plan：按月付费、不按 token 收钱，生产详情里不显示花费',
-  metered: '按 token × 单价算每篇花了多少，Agent 的「一次最多花多少」也按它卡',
+  metered: '按单价算每篇花了多少（文字按 token、图片按张），Agent 的「一次最多花多少」也按它卡',
 }
 
 function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?: AiModel } | null; onClose: () => void }) {
@@ -293,12 +297,18 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
   })
   // 单价 0 不预填：切到按量计费时要照厂商价格页填
   const blankZero = (v: string) => (Number(v) > 0 ? v : '')
+  // 输出上限、超时 0 = 不设、交给厂商：表单里显示成空
+  const blankUnset = (n: number) => (n > 0 ? n : undefined)
   const initial = value?.model
-    ? { ...value.model, inputPricePer1k: blankZero(value.model.inputPricePer1k), outputPricePer1k: blankZero(value.model.outputPricePer1k) }
+    ? { ...value.model, inputPricePer1k: blankZero(value.model.inputPricePer1k), outputPricePer1k: blankZero(value.model.outputPricePer1k),
+      pricePerImage: blankZero(value.model.pricePerImage),
+      maxOutputTokens: blankUnset(value.model.maxOutputTokens), requestTimeoutSec: blankUnset(value.model.requestTimeoutSec) }
     : {
-    name: '', label: '', billing: 'free', inputPricePer1k: '', outputPricePer1k: '', maxOutputTokens: 4000, disableThinking: false, requestTimeoutSec: 90,
+    name: '', label: '', modality: 'text', billing: 'free', inputPricePer1k: '', outputPricePer1k: '', pricePerImage: '',
+    disableThinking: false,
   }
   const billing = Form.useWatch('billing', form) as AiModel['billing'] | undefined
+  const image = Form.useWatch('modality', form) === 'image'
   const names = remote.data?.items ?? []
   const nameHint = !value?.provider.secretConfigured
     ? '厂商还没填 API Key；填好后可以直接从列表里选'
@@ -309,7 +319,8 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
     <Modal open={value !== null} title={isNew ? `给「${value?.provider.name}」加模型` : '编辑模型'} okText="保存" cancelText="取消"
       onCancel={onClose} onOk={() => form.submit()} confirmLoading={save.isPending} destroyOnHidden width={560}
       afterOpenChange={(o) => o && form.setFieldsValue(initial)}>
-      <Form form={form} layout="vertical" onFinish={(v) => save.mutate(v)} requiredMark={false}>
+      <Form form={form} layout="vertical" requiredMark={false}
+        onFinish={(v) => save.mutate({ ...v, maxOutputTokens: v.maxOutputTokens ?? 0, requestTimeoutSec: v.requestTimeoutSec ?? 0 })}>
         <Form.Item name="name" label="模型" rules={[{ required: true, message: '请选择或填写模型' }]} extra={nameHint}>
           <AutoComplete
             options={names.map((n) => ({ value: n }))}
@@ -319,12 +330,22 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
           />
         </Form.Item>
         <Form.Item name="label" label="显示名" extra="Agent 页选大脑时看到的名字，不填就用模型名">
-          <Input placeholder="如：DeepSeek V3" maxLength={64} />
+          <Input placeholder="如：DeepSeek V3" maxLength={NAME_MAX_LEN} />
+        </Form.Item>
+        <Form.Item name="modality" label="类型"
+          extra={image ? '只用来配图：选给「常用在」配图的 Agent 当大脑' : '对话、带技能和工具，用在找资料 / 写 / 检查'}>
+          <Segmented disabled={!isNew && (value?.model?.usedByAgents ?? 0) > 0}
+            options={[{ value: 'text', label: '文字' }, { value: 'image', label: '图片' }]} />
         </Form.Item>
         <Form.Item name="billing" label="怎么收费" extra={BILLING_HINT[billing ?? 'free']}>
           <Segmented options={[{ value: 'free', label: '免费' }, { value: 'plan', label: '包月 / 套餐' }, { value: 'metered', label: '按量计费' }]} />
         </Form.Item>
-        {billing === 'metered' && (
+        {billing === 'metered' && image && (
+          <Form.Item name="pricePerImage" label="单价（元 / 张）" rules={[{ required: true, message: '照厂商价格页填' }]}>
+            <Input placeholder="如 0.2" style={{ width: 200 }} />
+          </Form.Item>
+        )}
+        {billing === 'metered' && !image && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item name="inputPricePer1k" label="输入单价（元 / 千 token）" rules={[{ required: true, message: '照厂商价格页填' }]}>
               <Input placeholder="如 0.002" />
@@ -336,16 +357,17 @@ function ModelModal({ value, onClose }: { value: { provider: AiProvider; model?:
         )}
         <Collapse ghost size="small" style={{ margin: '0 -16px' }} items={[{
           key: 'more',
-          label: <Typography.Text type="secondary" style={{ fontSize: 13 }}>高级：输出上限、超时、思考模式（一般不用改）</Typography.Text>,
+          label: <Typography.Text type="secondary" style={{ fontSize: 13 }}>高级：输出上限、超时、思考模式（不填都交给厂商）</Typography.Text>,
           forceRender: true,
           children: (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <Form.Item name="maxOutputTokens" label="单次输出上限（token）">
-                  <InputNumber min={256} max={32000} style={{ width: '100%' }} />
+                <Form.Item name="maxOutputTokens" label="单次输出上限（token）"
+                  extra="不填用厂商默认。会先思考的模型，思考也算在里面">
+                  <InputNumber min={256} max={32000} placeholder="厂商默认" style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item name="requestTimeoutSec" label="单次调用超时（秒）">
-                  <InputNumber min={10} max={600} style={{ width: '100%' }} />
+                <Form.Item name="requestTimeoutSec" label="单次调用超时（秒）" extra="不填就一直等厂商回">
+                  <InputNumber min={10} max={600} placeholder="不限" style={{ width: '100%' }} />
                 </Form.Item>
               </div>
               <Form.Item name="disableThinking" label="关闭思考模式" valuePropName="checked" style={{ marginBottom: 0 }}

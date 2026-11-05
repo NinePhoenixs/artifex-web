@@ -1,222 +1,107 @@
-import { Alert, Drawer, Empty, Skeleton, Space, Steps, Tag, Typography } from 'antd'
+import { useRef, useState } from 'react'
+import { Drawer, Skeleton } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { getJob, listAgents, listAiRuns } from '@/api/endpoints'
+import { getRecipe } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import type { AiRun, AiRunStep, JobStatus, ProductionJob } from '@/api/types'
-import { brand } from '@/theme'
-import { secondsText, sumUsage, usageText } from './usage'
+import type { ProductionJob } from '@/api/types'
+import { useEnums } from '@/hooks/useEnums'
+import { useJobWatch } from '@/hooks/useJobWatch'
+import CrewProgress from './crew/CrewProgress'
+import { revisionCount } from './crew/derive'
+import { JOB_STATUS } from './jobStatus'
+import { secondsText } from './usage'
+import ArticlePreview from './preview/ArticlePreview'
+import NotePreview from './preview/NotePreview'
+import ResultSide from './preview/ResultSide'
+import { pickLayout, previewContent } from './preview/content'
+import './preview/preview.css'
 
-/** 生产任务的展示件：进度、成稿、AI 做了什么。试跑与生产记录共用。 */
+/** 生产详情：头部是成品标题，下面一排角色演生产过程，再往下左边成品预览、右边拿去用和过程。试产与生产记录共用。 */
+export function JobDrawer({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
+  const { job, runs } = useJobWatch(jobId)
+  // 「生产过程」展开没有，跟着任务走：换一个任务重新收起
+  const [processFor, setProcessFor] = useState<string | null>(null)
+  const processOpen = processFor !== null && processFor === jobId
+  const setProcessOpen = (open: boolean) => setProcessFor(open ? jobId : null)
+  const sideRef = useRef<HTMLDivElement>(null)
+  const c = previewContent(job)
 
-export const DONE: JobStatus[] = ['success', 'skipped', 'rejected', 'failed', 'waiting_human']
-
-export const JOB_STATUS: Record<JobStatus, { label: string; color: string }> = {
-  received: { label: '排队中', color: 'default' },
-  planned: { label: '排队中', color: 'default' },
-  materializing: { label: '找资料', color: 'processing' },
-  generating: { label: '写作中', color: 'processing' },
-  reviewing: { label: '检查中', color: 'processing' },
-  delivering: { label: '交付中', color: 'processing' },
-  success: { label: '已完成', color: 'success' },
-  skipped: { label: '已跳过', color: 'default' },
-  rejected: { label: '已拒绝', color: 'warning' },
-  failed: { label: '失败', color: 'error' },
-  waiting_human: { label: '待复核', color: 'warning' },
-}
-
-const PROGRESS: Record<string, number> = { material: 0, generation: 1, review: 2, delivery: 3 }
-
-const RUN_STATUS: Record<AiRun['status'], { label: string; color: string }> = {
-  running: { label: '运行中', color: 'processing' },
-  succeeded: { label: '完成', color: 'success' },
-  failed: { label: '失败', color: 'error' },
-  over_limit: { label: '超出上限', color: 'warning' },
-}
-
-export function JobProgress({ job }: { job: ProductionJob }) {
-  const current = job.status === 'success' ? 4 : PROGRESS[job.currentStage] ?? 0
-  const vars = Object.entries(job.variables ?? {})
-  return (
-    <>
-    {(job.topic || vars.length > 0) && (
-      <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        {[job.topic && `主题：${job.topic}`, ...vars.map(([k, v]) => `${k}：${v}`)].filter(Boolean).join('　')}
-      </Typography.Paragraph>
-    )}
-    <Steps
-      size="small"
-      current={current}
-      // 检查没通过、自动修改后通过的任务也有失败流水，只看最终状态
-      status={job.status === 'failed' ? 'error' : job.status === 'success' ? 'finish' : 'process'}
-      style={{ marginBottom: 20 }}
-      items={[{ title: '找资料' }, { title: '写' }, { title: '检查' }, { title: '交付' }]}
-    />
-    </>
-  )
-}
-
-export function JobResult({ job }: { job: ProductionJob }) {
-  const stages = job.report?.stages ?? []
-  // 失败原因看最后一条失败流水（前面的可能是自动修改前没通过的检查）
-  const failed = [...stages].reverse().find((s) => !s.success)
-  const revised = stages.filter((s) => s.stage === 'review' && !s.success)
-  if (job.status !== 'success') {
-    return (
-      <Alert
-        type={job.status === 'skipped' ? 'info' : 'error'}
-        showIcon
-        title={job.status === 'skipped' ? '这次被跳过了' : '这次没跑成'}
-        description={failed?.errorMsg}
-        style={{ marginBottom: 20 }}
-      />
-    )
+  const showProcess = () => {
+    setProcessOpen(true)
+    requestAnimationFrame(() => sideRef.current?.querySelector('.pv-fold:last-of-type')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
   }
-  const pick = (role: string) => (job.report?.artifacts ?? []).find((a) => a.role === role)?.content ?? ''
-  let tags: string[] = []
-  try {
-    tags = JSON.parse(pick('tags') || '[]')
-  } catch {
-    tags = []
-  }
+
   return (
-    <div style={{ marginBottom: 24 }}>
-      {revised.length > 0 && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 12 }}
-          title={`检查没通过 ${revised.length} 次，AI 按问题自动修改后通过`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {revised.map((r, i) => (
-                <li key={i}>{r.errorMsg?.replace(/^评审不通过: /, '').replace(/；自动修改第 \d+ 次$/, '')}</li>
-              ))}
-            </ul>
-          }
-        />
-      )}
-      <Typography.Title level={5} style={{ marginTop: 0 }}>{pick('title') || '（无标题）'}</Typography.Title>
-      <div
-        style={{
-          whiteSpace: 'pre-wrap', lineHeight: 1.75, fontSize: 14, padding: 16, borderRadius: 8,
-          background: brand.paper, maxHeight: 360, overflow: 'auto',
-        }}
-      >
-        {pick('main')}
-      </div>
-      {tags.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          {tags.map((t) => <Tag key={t} variant="filled">#{t}</Tag>)}
+    <Drawer
+      open={Boolean(jobId)}
+      onClose={onClose}
+      size={1120}
+      title={job ? <JobHeader job={job} title={c?.title} /> : '生产详情'}
+      destroyOnHidden
+      styles={{ body: { padding: 0 } }}
+    >
+      {!job ? (
+        <div style={{ padding: 24 }}><Skeleton active paragraph={{ rows: 6 }} /></div>
+      ) : (
+        <div className="pv">
+          <div style={{ padding: '16px 24px 18px', borderBottom: '1px solid var(--line-2)' }}>
+            <CrewProgress job={job} runs={runs} onShowProcess={showProcess} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', alignItems: 'start' }}>
+            <div style={{ background: 'var(--paper)', padding: '28px 32px 64px', minHeight: 560, display: 'flex', justifyContent: 'center' }}>
+              {c ? (c.layout === 'article' ? <ArticlePreview c={c} /> : <NotePreview c={c} />) : (
+                <div className="pv-empty">{job.status === 'failed' || job.status === 'skipped' ? '这次没有成稿' : '成稿写出来后在这里预览'}</div>
+              )}
+            </div>
+            <div style={{ alignSelf: 'stretch', borderLeft: '1px solid var(--line-2)' }}>
+              <div ref={sideRef} style={{ position: 'sticky', top: 0, padding: 24 }}>
+                <ResultSide job={job} runs={runs} c={c} processOpen={processOpen} onProcessToggle={setProcessOpen} />
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </div>
-  )
-}
-
-/** AI 做了什么：每次阶段运行一块，下面列出每一步。 */
-export function RunTrace({ runs }: { runs: AiRun[] }) {
-  const { data: agents } = useQuery({ queryKey: qk.agents(), queryFn: () => listAgents() })
-  const agentName = (id: string) => agents?.items.find((a) => a.agentId === id)?.name ?? id
-  return (
-    <>
-      <Typography.Title level={5}>AI 做了什么</Typography.Title>
-      {runs.length > 0 && (
-        <Typography.Paragraph type="secondary" style={{ fontSize: 13, marginTop: -4, fontVariantNumeric: 'tabular-nums' }}>
-          合计 {usageText(sumUsage(runs))}
-        </Typography.Paragraph>
-      )}
-      {runs.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="AI 还没开始，或这一步没用到 AI" />
-      ) : (
-        runs.map((r) => (
-          <div key={r.runId} style={{ marginBottom: 16 }}>
-            <Space size={8} wrap style={{ marginBottom: 8 }}>
-              <Typography.Text strong>{r.stage === 'generation' ? '写' : r.stage === 'retrieval' ? '找资料' : '检查'}</Typography.Text>
-              {r.agentId && <Tag style={{ marginInlineEnd: 0 }}>由「{agentName(r.agentId)}」完成</Tag>}
-              {r.attempt > 1 && <Typography.Text type="secondary">第 {r.attempt} 轮</Typography.Text>}
-              <Tag color={RUN_STATUS[r.status].color}>{RUN_STATUS[r.status].label}</Tag>
-              <Typography.Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-                {r.model} · {usageText(sumUsage([r]))}
-              </Typography.Text>
-            </Space>
-            {r.skipped.length > 0 && (
-              <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-                没带上：{r.skipped.map(skipText).join('、')}
-              </Typography.Paragraph>
-            )}
-            {r.errorMsg && <Alert type="warning" showIcon title={r.errorMsg} style={{ marginBottom: 8 }} />}
-            <ol style={{ margin: 0, paddingLeft: 20 }}>
-              {r.steps.map((s) => <StepLine key={s.seq} step={s} />)}
-            </ol>
-          </div>
-        ))
-      )}
-    </>
-  )
-}
-
-function StepLine({ step: s }: { step: AiRunStep }) {
-  const what =
-    s.kind === 'skill'
-      ? `${s.outputSummary.includes('点名') ? '按配方点名用了' : '读了'}技能「${s.name}」${s.skillVersion ? `（第 ${s.skillVersion} 版）` : ''}`
-      : s.kind === 'tool'
-        ? s.name.startsWith('run_skill_script:') ? `在沙箱里运行了技能脚本 ${s.name.slice('run_skill_script:'.length)}` : `用了工具 ${s.name}`
-        : s.outputSummary.startsWith('调用 ') ? '想了想，决定先用能力' : '交稿'
-  return (
-    <li style={{ marginBottom: 4, color: s.status === 'failed' ? '#C2412D' : undefined }}>
-      <Typography.Text>{what}</Typography.Text>
-      <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>
-        {secondsText(s.costMs)}
-        {s.errorMsg && ` · ${s.errorMsg}`}
-      </Typography.Text>
-    </li>
-  )
-}
-
-const SKIP_REASON: Record<string, string> = {
-  not_found: '已删除',
-  disabled: '已停用',
-  not_applicable: '不适用',
-  unreachable: '连不上',
-}
-
-function skipText(s: string) {
-  const [id, reason] = s.split(':')
-  return `${id}（${SKIP_REASON[reason] ?? reason}）`
-}
-
-/** 跟踪一个任务：没结束就轮询任务与 AI 运行记录。 */
-export function useJobWatch(jobId: string | null) {
-  const { data: job } = useQuery({
-    queryKey: qk.job(jobId ?? ''),
-    queryFn: () => getJob(jobId!),
-    enabled: Boolean(jobId),
-    refetchInterval: (q) => (q.state.data && DONE.includes(q.state.data.status) ? false : 2000),
-  })
-  const finished = Boolean(job && DONE.includes(job.status))
-  const { data: runs } = useQuery({
-    queryKey: qk.aiRuns(jobId ?? ''),
-    queryFn: () => listAiRuns(jobId!),
-    enabled: Boolean(jobId),
-    refetchInterval: finished ? false : 3000,
-  })
-  return { job, finished, runs: runs?.items ?? [] }
-}
-
-/** 生产记录里点开一条：进度、成稿、AI 做了什么。 */
-export function JobDrawer({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
-  const { job, finished, runs } = useJobWatch(jobId)
-  return (
-    <Drawer open={Boolean(jobId)} onClose={onClose} size={720} title="生产详情" destroyOnHidden>
-      {!job ? (
-        <Skeleton active paragraph={{ rows: 6 }} />
-      ) : (
-        <>
-          <JobProgress job={job} />
-          {finished && <JobResult job={job} />}
-          <RunTrace runs={runs} />
-        </>
-      )}
     </Drawer>
+  )
+}
+
+/** 头部：成品标题是主角，下面一行灰字（版式 · 配方 · 主题 · 用时），右边一个状态。 */
+function JobHeader({ job, title }: { job: ProductionJob; title?: string }) {
+  const { label } = useEnums()
+  const { data: recipe } = useQuery({
+    queryKey: qk.recipe(job.appId, job.recipeId),
+    queryFn: () => getRecipe(job.appId, job.recipeId),
+    enabled: Boolean(job.appId && job.recipeId),
+    staleTime: 60_000,
+  })
+  const total = job.steps.reduce((s, x) => s + x.costMs, 0)
+  const revisions = revisionCount(job)
+  const meta = [
+    label('layout', pickLayout(job)),
+    recipe?.name && `配方「${recipe.name}」`,
+    job.topic && `主题：${job.topic}`,
+    total > 0 && `${secondsText(total)}，${revisions ? `返修 ${revisions} 次` : '没有返修'}`,
+  ].filter(Boolean) as string[]
+  const status = job.status === 'success'
+    ? { text: '已交付', fg: '#2E7D4F', bg: '#EAF4EE' }
+    : job.status === 'failed'
+      ? { text: '没跑成', fg: '#C2412D', bg: '#FBEDEA' }
+      : { text: JOB_STATUS[job.status].label, fg: '#2C4E92', bg: '#EDF1F8' }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {title || job.topic || '生产详情'}
+        </div>
+        <div style={{ marginTop: 2, color: 'rgba(0,0,0,.42)', fontSize: 12.5, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {meta.join(' · ')}
+        </div>
+      </div>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 13, background: status.bg, color: status.fg, fontSize: 12.5, fontWeight: 500, flex: 'none' }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+        {status.text}
+      </span>
+    </div>
   )
 }

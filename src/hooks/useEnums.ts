@@ -20,7 +20,8 @@ export function useEnums() {
     staleTime: Infinity, // 枚举字典一个会话内不会变
   })
 
-  const dict = data ?? FALLBACK_ENUMS
+  // 后端还没有的组（如新加的枚举）用兜底，不让下拉框空白
+  const dict: typeof FALLBACK_ENUMS = { ...FALLBACK_ENUMS, ...data }
 
   return {
     dict,

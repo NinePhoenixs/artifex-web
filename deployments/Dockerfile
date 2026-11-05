@@ -20,5 +20,6 @@ RUN pnpm build
 # 只剩一堆静态文件 + nginx，镜像几十 MB
 FROM nginx:1.27-alpine
 COPY deployments/nginx.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p /etc/nginx/artifex-auth
 COPY --from=build /src/dist /usr/share/nginx/html
 EXPOSE 80

@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { brand } from '@/theme'
 
 /** 纯函数，好测。越界或原地不动时返回原数组。 */
 export function moveItem<T>(arr: T[], from: number, to: number): T[] {
@@ -162,7 +163,7 @@ function Row({
       <span
         {...attributes}
         {...listeners}
-        style={{ cursor: 'grab', color: '#94a3b8', display: 'flex' }}
+        style={{ cursor: 'grab', color: brand.textMuted, display: 'flex' }}
         aria-label={`拖动调整「${id}」的位置`}
       >
         <HolderOutlined />
