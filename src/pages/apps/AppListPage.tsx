@@ -10,6 +10,7 @@ import { useEnums } from '@/hooks/useEnums'
 import { brand } from '@/theme'
 import { formatDateTime } from '@/utils/time'
 import AppFormModal from './AppFormModal'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * 应用列表，卡片式。
@@ -17,6 +18,7 @@ import AppFormModal from './AppFormModal'
  */
 export default function AppListPage() {
   const navigate = useNavigate()
+  const { can } = useSession()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AppListItem | null>(null)
   const { label } = useEnums()
@@ -39,17 +41,19 @@ export default function AppListPage() {
             一个应用对应一类内容，比如某个品牌的小红书笔记。配方和生产记录按应用分开。
           </Typography.Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          style={{ marginLeft: 'auto' }}
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
-        >
-          创建应用
-        </Button>
+        {can.edit && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            style={{ marginLeft: 'auto' }}
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+          >
+            创建应用
+          </Button>
+        )}
       </div>
 
       {isError && (
@@ -77,10 +81,12 @@ export default function AppListPage() {
         </div>
       ) : items.length === 0 && !isError ? (
         <Card>
-          <Empty description="还没有应用，先创建一个">
-            <Button type="primary" onClick={() => setModalOpen(true)}>
-              创建应用
-            </Button>
+          <Empty description={can.edit ? '还没有应用，先创建一个' : '这个空间还没有应用'}>
+            {can.edit && (
+              <Button type="primary" onClick={() => setModalOpen(true)}>
+                创建应用
+              </Button>
+            )}
           </Empty>
         </Card>
       ) : (
@@ -97,16 +103,18 @@ export default function AppListPage() {
                   {app.appTypeName || label('appType', app.appType)}
                 </Tag>
                 <Space size={4} style={{ marginLeft: 'auto' }}>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditing(app)
-                      setModalOpen(true)
-                    }}
-                  />
+                  {can.edit && (
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditing(app)
+                        setModalOpen(true)
+                      }}
+                    />
+                  )}
                   <RightOutlined style={{ color: '#cbd5e1' }} />
                 </Space>
               </div>

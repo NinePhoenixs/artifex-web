@@ -229,6 +229,8 @@ export interface AiProvider {
   secretHint: string
   maxConcurrency: number
   status: ActiveStatus
+  /** platform = 平台提供（所有空间可用、只有平台管理员能改）；space = 本空间接入的 */
+  scope: 'platform' | 'space'
   models: AiModel[]
 }
 
@@ -699,4 +701,96 @@ export interface PromptAssistResponse {
   findings: PromptFinding[]
   /** 生成 / 优化结果里程序发现、AI 没改好的地方，如「原文的 {{商品名}} 不见了」 */
   notes?: string[]
+}
+
+// ---------- 账号与空间 ----------
+
+export type Role = 'owner' | 'admin' | 'editor' | 'member'
+export type SpaceKind = 'personal' | 'team'
+
+export interface User {
+  userId: string
+  email: string
+  displayName: string
+  /** 平台管理员：能改系统自带的 Agent、能力、模型，管邀请码 */
+  isPlatformAdmin: boolean
+}
+
+export interface Space {
+  spaceId: string
+  name: string
+  kind: SpaceKind
+  /** 我在这个空间的角色 */
+  role: Role
+  memberCount: number
+}
+
+/** 我是谁、我在哪些空间：团队空间在前，个人空间最后 */
+export interface Me {
+  user: User
+  lastSpaceId: string
+  spaces: Space[]
+}
+
+export interface AuthOptions {
+  registration: 'invite_only' | 'open'
+  emailCodeResendSeconds: number
+}
+
+export interface RegisterRequest {
+  email: string
+  emailCode: string
+  password: string
+  displayName: string
+  inviteCode?: string
+  inviteToken?: string
+  remember?: boolean
+}
+
+export interface Member {
+  userId: string
+  displayName: string
+  email: string
+  role: Role
+  joinedAt: string
+}
+
+/** 还有效的团队邀请链接；链接原文只在生成时返回一次 */
+export interface PendingInvite {
+  inviteId: string
+  role: Role
+  usedCount: number
+  maxUses: number
+  expiresAt: string
+  inviterName: string
+}
+
+export interface MemberList {
+  members: Member[]
+  invites: PendingInvite[]
+}
+
+export interface CreatedInvite {
+  inviteId: string
+  url: string
+  role: Role
+  maxUses: number
+  expiresAt: string
+}
+
+export interface InviteInfo {
+  spaceName: string
+  inviterName: string
+  role: Role
+  alreadyMember: boolean
+}
+
+export interface InviteCode {
+  code: string
+  remark: string
+  usedCount: number
+  maxUses: number
+  expiresAt: string | null
+  status: 'active' | 'disabled' | 'used_up' | 'expired'
+  createdAt: string
 }

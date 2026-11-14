@@ -3,7 +3,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Card, Popconfirm, Segmented, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listCapabilities, updateCapability } from '@/api/endpoints'
+import { copyCapability, listCapabilities, updateCapability } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
 import type { AppType, Capability, CapabilityKind, ListCapabilitiesQuery } from '@/api/types'
 import {
@@ -17,6 +17,7 @@ import { useEnums } from '@/hooks/useEnums'
 import CapabilityDrawer from './CapabilityDrawer'
 import CapabilityFormModal from './CapabilityFormModal'
 import CenterTabs from './CenterTabs'
+import { useSession } from '@/session/SessionContext'
 
 const ALL = 'all'
 
@@ -26,6 +27,7 @@ const ALL = 'all'
  */
 export default function CapabilityListPage() {
   const { message } = App.useApp()
+  const { can, isPlatformAdmin } = useSession()
   const onError = useApiError()
   const client = useQueryClient()
   const enums = useEnums()
@@ -53,6 +55,15 @@ export default function CapabilityListPage() {
       message.success(c.status === 'disabled' ? `已停用「${c.name}」` : `已启用「${c.name}」`)
       client.invalidateQueries({ queryKey: ['capabilities'] })
       client.invalidateQueries({ queryKey: qk.capability(c.capabilityId) })
+    },
+    onError: (e) => onError(e, { onNotFound: () => refetch() }),
+  })
+  const copy = useMutation({
+    mutationFn: (c: Capability) => copyCapability(c.capabilityId),
+    onSuccess: (c) => {
+      message.success('已复制到本空间，可以开始修改')
+      client.invalidateQueries({ queryKey: ['capabilities'] })
+      setViewing(c.capabilityId)
     },
     onError: (e) => onError(e, { onNotFound: () => refetch() }),
   })
@@ -100,7 +111,12 @@ export default function CapabilityListPage() {
       width: 80,
       align: 'right',
       render: (_, c) =>
-        c.status === 'disabled' ? (
+        !can.edit ? null : c.origin === 'platform' && !isPlatformAdmin ? (
+          <Button type="link" size="small" loading={copy.isPending && copy.variables?.capabilityId === c.capabilityId}
+            onClick={(e) => (e.stopPropagation(), copy.mutate(c))}>
+            复制到本空间
+          </Button>
+        ) : c.status === 'disabled' ? (
           <Button type="link" size="small" onClick={(e) => (e.stopPropagation(), toggle.mutate(c))}>
             启用
           </Button>
@@ -131,9 +147,11 @@ export default function CapabilityListPage() {
           </Typography.Title>
           <Typography.Text type="secondary">技能教 AI 怎么写，工具让 AI 能查资料、调数据。配方的每一步从这里挑。</Typography.Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setFormOpen(true)}>
-          登记能力
-        </Button>
+        {can.edit && (
+          <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setFormOpen(true)}>
+            登记能力
+          </Button>
+        )}
       </div>
 
       {isError && (

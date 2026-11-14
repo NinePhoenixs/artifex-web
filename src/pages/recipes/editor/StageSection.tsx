@@ -13,6 +13,7 @@ import { brand } from '@/theme'
 import AgentSelect from './AgentSelect'
 import { findMentions, splitMentions } from './mentions'
 import PromptAssist from './PromptAssist'
+import { useSession } from '@/session/SessionContext'
 
 /** 找资料 / 写 / 检查，按流水线先后。动词用在标题「这一步让 AI 怎么 X」里；步骤名见 STAGE_LABEL。 */
 const STAGE_META: Record<StageName, { verb: string; placeholder: string }> = {
@@ -37,6 +38,7 @@ const STAGE_META: Record<StageName, { verb: string; placeholder: string }> = {
 export default function StageSection({
   stage, appType, recipeName, appTypeName, children,
 }: { stage: StageName; appType: AppType; recipeName: string; appTypeName: string; children?: ReactNode }) {
+  const { can } = useSession()
   const meta = STAGE_META[stage]
   const form = Form.useFormInstance()
   const { message } = App.useApp()
@@ -89,7 +91,7 @@ export default function StageSection({
           <AgentSelect stage={stage} />
         </Form.Item>
       </div>
-      <PromptAssist stage={stage} recipeName={recipeName} appTypeName={appTypeName} />
+      {can.edit && <PromptAssist stage={stage} recipeName={recipeName} appTypeName={appTypeName} />}
 
       <PromptBoard prompt={prompt} caps={caps} grants={[...own, ...grants]}>
       <Form.Item

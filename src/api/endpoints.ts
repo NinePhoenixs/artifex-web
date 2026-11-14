@@ -34,6 +34,16 @@ import type {
   PipelineStage,
   ProviderInput,
   StageName,
+  AuthOptions,
+  CreatedInvite,
+  InviteCode,
+  InviteInfo,
+  Me,
+  MemberList,
+  Member,
+  RegisterRequest,
+  Role,
+  Space,
 } from './types'
 
 // ---------- 元数据 ----------
@@ -187,3 +197,41 @@ export const skillExportUrl = (id: string) => apiUrl(`/v1/capabilities/${encodeU
 /** 提示词助手：AI 生成 / 优化 / 检查。只给建议，不落库；免费模型可能要 1~2 分钟 */
 export const promptAssist = (body: PromptAssistRequest) =>
   api.post<PromptAssistResponse>('/v1/prompt-assist', body)
+
+// ---------- 账号与空间 ----------
+
+export const getAuthOptions = () => api.get<AuthOptions>('/v1/auth/options')
+export const sendEmailCode = (email: string, purpose: 'register' | 'reset_password') =>
+  api.post<void>('/v1/auth/email-codes', { email, purpose })
+export const register = (body: RegisterRequest) => api.post<Me>('/v1/auth/register', body)
+export const login = (body: { email: string; password: string; remember: boolean }) => api.post<Me>('/v1/auth/login', body)
+export const logout = () => api.post<void>('/v1/auth/logout')
+export const resetPassword = (body: { email: string; emailCode: string; newPassword: string }) =>
+  api.post<Me>('/v1/auth/password-reset', body)
+
+export const getMe = () => api.get<Me>('/v1/me')
+export const updateMe = (body: { displayName?: string; lastSpaceId?: string }) => api.patch<Me>('/v1/me', body)
+export const changePassword = (body: { oldPassword: string; newPassword: string }) => api.put<void>('/v1/me/password', body)
+
+export const createSpace = (name: string) => api.post<Space>('/v1/spaces', { name })
+export const renameSpace = (spaceId: string, name: string) => api.patch<Space>(`/v1/spaces/${spaceId}`, { name })
+export const listMembers = (spaceId: string) => api.get<MemberList>(`/v1/spaces/${spaceId}/members`)
+export const changeRole = (spaceId: string, userId: string, role: Role) =>
+  api.patch<Member>(`/v1/spaces/${spaceId}/members/${userId}`, { role })
+export const removeMember = (spaceId: string, userId: string) => api.del<void>(`/v1/spaces/${spaceId}/members/${userId}`)
+export const transferOwnership = (spaceId: string, userId: string) =>
+  api.post<MemberList>(`/v1/spaces/${spaceId}/transfer`, { userId })
+export const createInvite = (spaceId: string, role: Role) => api.post<CreatedInvite>(`/v1/spaces/${spaceId}/invites`, { role })
+export const revokeInvite = (spaceId: string, inviteId: string) => api.del<void>(`/v1/spaces/${spaceId}/invites/${inviteId}`)
+export const getInvite = (token: string) => api.get<InviteInfo>(`/v1/invites/${encodeURIComponent(token)}`)
+export const acceptInvite = (token: string) => api.post<Me>(`/v1/invites/${encodeURIComponent(token)}/accept`)
+
+export const listInviteCodes = () => api.get<{ items: InviteCode[] }>('/v1/admin/invite-codes')
+export const createInviteCode = (body: { remark: string; maxUses: number; expiresAt?: string }) =>
+  api.post<InviteCode>('/v1/admin/invite-codes', body)
+export const disableInviteCode = (code: string) =>
+  api.patch<InviteCode>(`/v1/admin/invite-codes/${encodeURIComponent(code)}`, { status: 'disabled' })
+
+/** 把系统自带的 Agent / 能力复制到当前空间，副本可以改 */
+export const copyAgent = (agentId: string) => api.post<Agent>(`/v1/agents/${agentId}/copy`)
+export const copyCapability = (id: string) => api.post<Capability>(`/v1/capabilities/${encodeURIComponent(id)}/copy`)

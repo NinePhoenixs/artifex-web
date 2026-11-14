@@ -5,8 +5,9 @@ import {
 } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  createAgent, getAgent, listCapabilities, listProviders, tryAgent, updateAgent,
+  copyAgent, createAgent, getAgent, listCapabilities, listProviders, tryAgent, updateAgent,
 } from '@/api/endpoints'
+import { useSession } from '@/session/SessionContext'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import type { Agent, AgentInput, AgentTryResult, AgentUsage, PipelineStage, StageName } from '@/api/types'
@@ -48,6 +49,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
   const isNew = agentId === 'new'
   const open = agentId !== null
   const { message } = App.useApp()
+  const { can, isPlatformAdmin } = useSession()
   const onError = useApiError()
   const client = useQueryClient()
   const [form] = Form.useForm<FormValues>()
@@ -110,6 +112,19 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
     onError: (e) => onError(e),
   })
 
+  const copy = useMutation({
+    mutationFn: (a: Agent) => copyAgent(a.agentId),
+    onSuccess: (a) => {
+      refresh(a)
+      message.success('已复制到本空间，可以开始修改')
+      onCreated(a.agentId)
+    },
+    onError: (e) => onError(e),
+  })
+  // 系统自带的只有平台管理员能改；成员什么都不能改
+  const builtinLocked = !isNew && agent?.origin === 'platform' && !isPlatformAdmin
+  const readonly = !can.edit || builtinLocked
+
   const submit = (v: FormValues) => {
     // 已挑过的 MCP 动作原样保留；新勾的默认全部动作
     const prev = new Map((agent?.capabilities ?? []).map((c) => [c.capabilityId, c.actions]))
@@ -139,7 +154,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
       title={isNew ? '新建 Agent' : agent?.name}
       destroyOnHidden
       extra={
-        !isNew && agent && agent.origin !== 'platform' ? (
+        !isNew && agent && agent.origin !== 'platform' && !readonly ? (
           agent.status === 'active' ? (
             <Popconfirm title={`停用「${agent.name}」？`} description="有配方在用它时不能停用。" okText="停用" cancelText="取消"
               onConfirm={() => toggle.mutate(agent)}>
@@ -151,22 +166,34 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
         ) : null
       }
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button type="primary" loading={save.isPending} onClick={() => form.submit()}>
-            {isNew ? '新建' : '保存'}
-          </Button>
-        </div>
+        readonly ? (
+          builtinLocked && can.edit && agent ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" loading={copy.isPending} onClick={() => copy.mutate(agent)}>复制到本空间</Button>
+            </div>
+          ) : null
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button type="primary" loading={save.isPending} onClick={() => form.submit()}>
+              {isNew ? '新建' : '保存'}
+            </Button>
+          </div>
+        )
       }
     >
       {!isNew && isLoading ? (
         <Skeleton active />
       ) : (
         <>
-          {agent?.origin === 'platform' && agent.usedByRecipes > 0 && (
+          {builtinLocked && (
+            <Alert type="info" showIcon style={{ marginBottom: 16 }}
+              title="系统自带的不能直接改。复制一份到本空间后，改动只影响本空间。" />
+          )}
+          {!builtinLocked && agent?.origin === 'platform' && agent.usedByRecipes > 0 && (
             <Alert type="info" showIcon style={{ marginBottom: 16 }}
               title={`${agent.usedByRecipes} 份配方在用它，改动会影响这些配方之后写的每一篇。`} />
           )}
-          <Form form={form} layout="vertical" onFinish={submit} requiredMark={false}>
+          <Form form={form} layout="vertical" onFinish={submit} requiredMark={false} disabled={readonly}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Form.Item name="name" label="名称" rules={[{ required: true, message: '请填写名称' }]}>
                 <Input maxLength={NAME_MAX_LEN} placeholder="如：执笔 · 好模型" />
@@ -212,7 +239,7 @@ export default function AgentDrawer({ agentId, onClose, onCreated }: Props) {
 
           {!isNew && agent && (
             <>
-              <TryAgent agent={agent} />
+              {can.edit && <TryAgent agent={agent} />}
               <UsedBy agent={agent} />
             </>
           )}

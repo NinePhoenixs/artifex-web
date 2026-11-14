@@ -10,6 +10,7 @@ import { useApiError } from '@/hooks/useApiError'
 import { brand } from '@/theme'
 import { formatDateTime } from '@/utils/time'
 import PickSystemRecipeModal from './PickSystemRecipeModal'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * 应用配方列表，表格形态。
@@ -20,6 +21,7 @@ import PickSystemRecipeModal from './PickSystemRecipeModal'
  * - 没有「来源」列——列表接口不返回 systemRecipeId
  */
 export default function RecipeListPage() {
+  const { can } = useSession()
   const { appId = '' } = useParams<{ appId: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -63,12 +65,16 @@ export default function RecipeListPage() {
           </Typography.Text>
         </div>
         {/* 对比试产是内部验证工具，只放一个不抢眼的文字入口 */}
-        <Button type="link" style={{ marginLeft: 'auto' }} onClick={() => navigate(`/apps/${appId}/recipes/compare`)}>
-          对比试产
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setPickOpen(true)}>
-          创建配方
-        </Button>
+        {can.edit && (
+          <>
+            <Button type="link" style={{ marginLeft: 'auto' }} onClick={() => navigate(`/apps/${appId}/recipes/compare`)}>
+              对比试产
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setPickOpen(true)}>
+              创建配方
+            </Button>
+          </>
+        )}
       </div>
 
       {isError && (
@@ -120,7 +126,7 @@ export default function RecipeListPage() {
             align: 'right',
             render: (_: unknown, row) => (
               <Space size={4}>
-                {row.status === 'ready' && row.recipeId !== selectedId && (
+                {can.edit && row.status === 'ready' && row.recipeId !== selectedId && (
                   <Button
                     type="link"
                     size="small"
@@ -135,7 +141,7 @@ export default function RecipeListPage() {
                   size="small"
                   onClick={() => navigate(`/apps/${appId}/recipes/${row.recipeId}`)}
                 >
-                  编辑
+                  {can.edit ? '编辑' : '查看'}
                 </Button>
               </Space>
             ),

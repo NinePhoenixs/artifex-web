@@ -7,12 +7,14 @@ import { USAGE_LABEL } from '@/constants/stage'
 import { useAgents } from '@/hooks/useAgents'
 import CenterTabs from '@/pages/capabilities/CenterTabs'
 import AgentDrawer from './AgentDrawer'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * Agent = 一个大脑（模型）+ 角色说明 + 可选的能力。配方的每一步选一个 Agent 来做，
  * 平台自带采风、执笔、校审、画师等；想让某一步换模型或换身份，才在这里新建。
  */
 export default function AgentListPage() {
+  const { can } = useSession()
   const { data, isLoading, isError, error, refetch } = useAgents()
   const [editing, setEditing] = useState<string | 'new' | null>(null)
 
@@ -23,7 +25,7 @@ export default function AgentListPage() {
       render: (_, a) => (
         <div>
           <Typography.Text strong>{a.name}</Typography.Text>
-          {a.origin === 'platform' && <Tag style={{ marginLeft: 8 }}>平台自带</Tag>}
+          {a.origin === 'platform' && <Tag style={{ marginLeft: 8 }}>系统自带</Tag>}
           <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{a.description}</Typography.Text>
         </div>
       ),
@@ -69,12 +71,14 @@ export default function AgentListPage() {
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>Agent</Typography.Title>
           <Typography.Text type="secondary">
-            配方里每一步由一个 Agent 来做，比如采风找资料、执笔写稿。一般用平台自带的就够了，要换模型或固定带某些能力时再新建。
+            配方里每一步由一个 Agent 来做，比如采风找资料、执笔写稿。一般用系统自带的就够了，要换模型或固定带某些能力时再新建。
           </Typography.Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEditing('new')}>
-          新建 Agent
-        </Button>
+        {can.edit && (
+          <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEditing('new')}>
+            新建 Agent
+          </Button>
+        )}
       </div>
       {isError && (
         <Alert type="error" showIcon title="加载失败" description={(error as Error)?.message} style={{ marginBottom: 16 }}

@@ -13,12 +13,14 @@ import type { AiModel, AiProvider, ModelTestResult, ProviderInput } from '@/api/
 import { useApiError } from '@/hooks/useApiError'
 import { NAME_MAX_LEN } from '@/constants/limits'
 import CenterTabs from '@/pages/capabilities/CenterTabs'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * 模型：厂商（接口地址、API Key、同时调用上限）下面挂模型（单价、思考模式、超时）。
  * API Key 在厂商设置里填，加密存库，页面上只显示尾号；也可以由服务器上的同名配置提供。
  */
 export default function ModelListPage() {
+  const { can } = useSession()
   const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: qk.providers(), queryFn: listProviders })
   const [editingProvider, setEditingProvider] = useState<AiProvider | 'new' | null>(null)
   const [editingModel, setEditingModel] = useState<{ provider: AiProvider; model?: AiModel } | null>(null)
@@ -29,11 +31,15 @@ export default function ModelListPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>模型</Typography.Title>
-          <Typography.Text type="secondary">Agent 用哪个模型来想和写。可以接入智谱、DeepSeek、通义等兼容 OpenAI 接口的厂商。</Typography.Text>
+          <Typography.Text type="secondary">
+            Agent 用哪个模型来想和写。平台提供的可以直接试用；接上自己的模型（智谱、DeepSeek、通义等兼容 OpenAI 接口的厂商），用量不受限制。
+          </Typography.Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEditingProvider('new')}>
-          新增厂商
-        </Button>
+        {can.manageAI && (
+          <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEditingProvider('new')}>
+            新增厂商
+          </Button>
+        )}
       </div>
       {isError && (
         <Alert type="error" showIcon title="加载失败" description={(error as Error)?.message} style={{ marginBottom: 16 }}
@@ -61,6 +67,9 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
   onAddModel: () => void
   onEditModel: (m: AiModel) => void
 }) {
+  const { can, isPlatformAdmin } = useSession()
+  // 平台提供的只有平台管理员能改；本空间的要所有者、管理员
+  const editable = can.manageAI && (p.scope !== 'platform' || isPlatformAdmin)
   const { message } = App.useApp()
   const onError = useApiError()
   const client = useQueryClient()
@@ -133,9 +142,9 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
                 </Typography.Text>
               )
             )}
-            <Button size="small" type="link" loading={r === 'running'} onClick={() => test(m)}>测试连接</Button>
-            <Button size="small" type="link" onClick={() => onEditModel(m)}>编辑</Button>
-            {m.status === 'active' ? (
+            {editable && <Button size="small" type="link" loading={r === 'running'} onClick={() => test(m)}>测试连接</Button>}
+            {editable && <Button size="small" type="link" onClick={() => onEditModel(m)}>编辑</Button>}
+            {!editable ? null : m.status === 'active' ? (
               <Popconfirm title={`停用「${m.label}」？`} description="有 Agent 在用时不能停用。" okText="停用" cancelText="取消"
                 onConfirm={() => toggle.mutate(m)}>
                 <Button size="small" type="link">停用</Button>
@@ -154,34 +163,37 @@ function ProviderCard({ provider: p, onEdit, onAddModel, onEditModel }: {
       title={
         <Space>
           {p.name}
+          {p.scope === 'platform' && <Tag color="blue" variant="filled">平台提供</Tag>}
           {p.status === 'disabled' && <Tag>已停用</Tag>}
           <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 12 }}>{p.baseUrl}</Typography.Text>
         </Space>
       }
-      extra={
+      extra={editable && (
         <Space>
           <Button size="small" onClick={onEdit}>厂商设置</Button>
           <Button size="small" icon={<PlusOutlined />} onClick={onAddModel}>加模型</Button>
         </Space>
-      }
+      )}
       styles={{ body: { padding: 0 } }}
     >
       <div style={{ padding: '10px 16px', fontSize: 12.5, color: 'rgba(0,0,0,.65)', borderBottom: '1px solid #F0F0F0' }}>
         API Key{' '}
-        {p.secretSource === 'saved' ? (
+        {p.scope === 'platform' && !isPlatformAdmin ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>平台提供，可以直接用</Typography.Text>
+        ) : p.secretSource === 'saved' ? (
           <Typography.Text type="success" style={{ fontSize: 12 }}>已保存 {p.secretHint}</Typography.Text>
         ) : p.secretSource === 'server' ? (
           <Typography.Text type="success" style={{ fontSize: 12 }}>由服务器配置提供</Typography.Text>
         ) : (
           <>
             <Typography.Text type="warning" style={{ fontSize: 12 }}>还没填，填好之前调用会失败</Typography.Text>
-            <Button size="small" type="link" style={{ fontSize: 12, height: 'auto', padding: '0 4px' }} onClick={onEdit}>去填写</Button>
+            {editable && <Button size="small" type="link" style={{ fontSize: 12, height: 'auto', padding: '0 4px' }} onClick={onEdit}>去填写</Button>}
           </>
         )}
         <span style={{ marginLeft: 16 }}>同时调用上限 {p.maxConcurrency || '不限'}</span>
       </div>
       <Table rowKey="modelId" columns={columns} dataSource={p.models} pagination={false}
-        locale={{ emptyText: '还没有模型，点右上角「加模型」' }} />
+        locale={{ emptyText: editable ? '还没有模型，点右上角「加模型」' : '还没有模型' }} />
     </Card>
   )
 }

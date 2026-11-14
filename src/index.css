@@ -43,3 +43,47 @@ body {
 .prompt-mention.tool { --m-bg: #e8f1fb; --m-tx: #1d5aa6; }
 .prompt-mention.skill { --m-bg: #e7f6ef; --m-tx: #0f7a52; }
 .prompt-mention.missing { --m-bg: #fdf0e9; --m-tx: #b4501f; }
+
+/* 登录、注册等页：左品牌右表单，窄屏只留表单 */
+.auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: #fff; }
+.auth-brand { display: flex; flex-direction: column; justify-content: space-between; padding: 48px 56px; }
+.auth-main { display: flex; align-items: center; justify-content: center; padding: 48px 32px; }
+@media (max-width: 860px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-brand { display: none; }
+}
+
+.num { font-variant-numeric: tabular-nums; }
+
+/* 官网首页 */
+.site { min-height: 100vh; background: #fff; display: flex; flex-direction: column; }
+.site-nav { display: flex; align-items: center; padding: 16px 40px; border-bottom: 1px solid #E7E3DA; position: sticky; top: 0; background: #fff; z-index: 2; }
+.site-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: 1px; color: #1D1D1F; }
+.site-logo:hover { color: #1D1D1F; }
+.site-links { display: flex; gap: 28px; margin-left: 48px; }
+.site-links a { color: rgba(0, 0, 0, .55); font-size: 14px; }
+.site-links a:hover { color: #2C4E92; }
+.site-acts { margin-left: auto; display: flex; gap: 10px; }
+.site-hero { max-width: 1200px; width: 100%; margin: 0 auto; padding: 88px 40px 64px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+.site-hero h1 { font-size: 48px; line-height: 1.16; font-weight: 800; letter-spacing: -.5px; margin: 0; color: #1D1D1F; }
+.site-hero p { font-size: 17px; line-height: 1.75; color: rgba(0, 0, 0, .55); margin: 20px 0 32px; }
+.site-shot { background: #F6F4EF; border: 1px solid #E7E3DA; border-radius: 16px; padding: 16px; }
+.site-flow { display: flex; align-items: center; gap: 8px; }
+.site-step { flex: 1; background: #fff; border: 1px solid #E7E3DA; border-radius: 10px; padding: 14px 8px; text-align: center; }
+.site-step b { display: block; font-size: 15px; }
+.site-step small { font-size: 12px; color: rgba(0, 0, 0, .38); }
+.site-arrow { color: rgba(0, 0, 0, .38); font-size: 14px; }
+.site-out { margin-top: 12px; background: #fff; border: 1px solid #E7E3DA; border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.site-out b { font-size: 15px; }
+.site-out span { font-size: 13px; color: rgba(0, 0, 0, .55); }
+.site-feat { max-width: 1200px; width: 100%; margin: 0 auto; padding: 16px 40px 72px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.site-feat div { border-top: 2px solid #1D1D1F; padding-top: 16px; display: grid; gap: 4px; scroll-margin-top: 90px; }
+.site-feat b { font-size: 17px; }
+.site-feat span { font-size: 14px; color: rgba(0, 0, 0, .55); }
+.site-foot { margin-top: auto; padding: 24px 40px; font-size: 12px; color: rgba(0, 0, 0, .38); }
+@media (max-width: 860px) {
+  .site-links { display: none; }
+  .site-hero { grid-template-columns: 1fr; padding-top: 48px; }
+  .site-hero h1 { font-size: 34px; }
+  .site-feat { grid-template-columns: 1fr; }
+}

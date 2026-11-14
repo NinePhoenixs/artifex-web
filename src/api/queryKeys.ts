@@ -22,4 +22,9 @@ export const qk = {
   aiRuns: (bizId: string) => ['ai-runs', bizId] as const,
   job: (jobId: string) => ['job', jobId] as const,
   jobs: (q: object = {}) => ['jobs', q] as const,
+  /** 我是谁、我在哪些空间。切换空间时它保留，其余缓存全部清掉 */
+  me: () => ['me'] as const,
+  members: (spaceId: string) => ['members', spaceId] as const,
+  inviteCodes: () => ['invite-codes'] as const,
+  authOptions: () => ['auth-options'] as const,
 }

@@ -10,15 +10,31 @@ import AgentListPage from './pages/agents/AgentListPage'
 import ModelListPage from './pages/agents/ModelListPage'
 import JobListPage from './pages/jobs/JobListPage'
 import WorkbenchPage from './pages/workbench/WorkbenchPage'
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import JoinPage from './pages/auth/JoinPage'
+import TeamSettingsPage from './pages/settings/TeamSettingsPage'
+import AccountSettingsPage from './pages/settings/AccountSettingsPage'
+import InviteCodesPage from './pages/settings/InviteCodesPage'
+import RequireSession from './session/RequireSession'
 
 /**
- * 待复核、模板库、开发者、用量、设置，以及应用里的概览 / 什么时候产 / 交到哪 / 设置：
+ * 待复核、模板库、开发者、用量，以及应用里的概览 / 什么时候产 / 交到哪 / 设置：
  * 还没做，菜单里灰掉标「敬请期待」，不注册路由。
+ * 登录、注册、找回密码、打开邀请链接不要登录；其余都包在 RequireSession 里。
  */
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/join/:token', element: <JoinPage /> },
   {
-    element: <ConsoleLayout />,
+    element: <RequireSession><ConsoleLayout /></RequireSession>,
     children: [
+      { path: '/settings', element: <TeamSettingsPage /> },
+      { path: '/account', element: <AccountSettingsPage /> },
+      { path: '/admin/invite-codes', element: <InviteCodesPage /> },
       { path: '/', element: <WorkbenchPage /> },
       { path: '/apps', element: <AppListPage /> },
       { path: '/jobs', element: <JobListPage /> },

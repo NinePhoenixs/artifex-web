@@ -73,6 +73,40 @@ export class ApiError extends Error {
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
+// ---------- 当前空间与登录状态 ----------
+
+/** 业务接口按它决定读写哪个空间的数据；登录后由会话层设置。 */
+let currentSpaceId = ''
+export const setCurrentSpace = (id: string) => {
+  currentSpaceId = id
+}
+export const getCurrentSpace = () => currentSpaceId
+
+/** 没登录或登录过期（401）时调用，会话层在这里跳登录页。 */
+let onUnauthorized: (() => void) | null = null
+export const setUnauthorizedHandler = (fn: (() => void) | null) => {
+  onUnauthorized = fn
+}
+
+/** 当前空间已经进不去（被移出、空间停用）时调用，会话层在这里回到个人空间。 */
+let onSpaceGone: (() => void) | null = null
+export const setSpaceGoneHandler = (fn: (() => void) | null) => {
+  onSpaceGone = fn
+}
+
+/** 账号接口不带空间：它们按路径或登录身份判断，带了也被忽略。 */
+const ACCOUNT_PREFIXES = ['/v1/auth/', '/v1/me', '/v1/spaces', '/v1/invites/', '/v1/admin/']
+
+function headersFor(method: HttpMethod, path: string, body: unknown): Record<string, string> {
+  const h: Record<string, string> = {}
+  // 上传文件时交给浏览器设 multipart 边界，不能手写 Content-Type
+  if (body !== undefined && !(body instanceof FormData)) h['Content-Type'] = 'application/json'
+  // 写请求必须带：挡住别的网站借浏览器里的登录 Cookie 发请求
+  if (method !== 'GET') h['X-Artifex-Client'] = 'console'
+  if (currentSpaceId && !ACCOUNT_PREFIXES.some((p) => path.startsWith(p))) h['X-Space-Id'] = currentSpaceId
+  return h
+}
+
 /**
  * **动态导入**，不是顶层 import。
  *
@@ -102,11 +136,12 @@ export async function request<T>(
 ): Promise<T> {
   let res: Response
   try {
-    // 上传文件时交给浏览器设 multipart 边界，不能手写 Content-Type
     const isForm = body instanceof FormData
     res = await fetch(toUrl(path), {
       method,
-      headers: body === undefined || isForm ? undefined : { 'Content-Type': 'application/json' },
+      // 登录凭证在 HttpOnly Cookie 里；本地开发前后端不同端口时也要带上
+      credentials: 'include',
+      headers: headersFor(method, path, body),
       body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
@@ -145,7 +180,11 @@ export async function request<T>(
   setOffline(false)
 
   if (!res.ok) {
-    throw new ApiError(res.status, (data ?? {}) as Partial<ErrorBody>)
+    const err = new ApiError(res.status, (data ?? {}) as Partial<ErrorBody>)
+    // 登录接口本身返回 401 是"密码不对"，不是登录过期
+    if (res.status === 401 && err.code === 'UNAUTHENTICATED') onUnauthorized?.()
+    if (res.status === 404 && err.code === 'SPACE_NOT_FOUND' && !ACCOUNT_PREFIXES.some((p) => path.startsWith(p))) onSpaceGone?.()
+    throw err
   }
   return data as T
 }
@@ -156,6 +195,7 @@ export const api = {
   upload: <T>(path: string, form: FormData) => request<T>('POST', path, form),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
+  del: <T>(path: string) => request<T>('DELETE', path),
 }
 
 /**
