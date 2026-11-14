@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, Button, Form, Input, Typography } from 'antd'
+import { Alert, Button, Form, Input } from 'antd'
+import { CheckOutlined } from '@ant-design/icons'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
@@ -44,7 +45,20 @@ export default function RegisterPage() {
     : needCode ? '现在凭邀请码注册。被同事邀请的，直接点邀请链接即可。' : '用邮箱注册，注册后自动建好你的个人空间。'
 
   return (
-    <AuthLayout title="注册稿谱" subtitle={subtitle}>
+    <AuthLayout
+      title={inviteToken ? '注册并加入团队' : '注册稿谱'}
+      subtitle={<>{subtitle}<br />已有账号？<Link to={inviteToken ? `/login?next=${encodeURIComponent(`/join/${inviteToken}`)}` : '/login'}>登录</Link></>}
+      panel={
+        <>
+          <p className="dim" style={{ margin: 0 }}>注册后你可以</p>
+          <ul className="ws-auth-pts">
+            {['配好第一份配方，当场试产一篇', '建团队空间，邀请同事一起用', '接上你自己的模型和工具'].map((t) => (
+              <li key={t}><CheckOutlined style={{ color: '#8AA6DB' }} />{t}</li>
+            ))}
+          </ul>
+        </>
+      }
+    >
       {banner && <Alert type="warning" showIcon message={banner} style={{ marginBottom: 20 }} />}
       <Form form={form} layout="vertical" onFinish={submit}>
         {needCode && (
@@ -61,9 +75,6 @@ export default function RegisterPage() {
         </Form.Item>
         <Button type="primary" htmlType="submit" size="large" block loading={loading}>注册并进入</Button>
       </Form>
-      <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 24 }}>
-        已有账号？<Link to={inviteToken ? `/login?next=${encodeURIComponent(`/join/${inviteToken}`)}` : '/login'}>登录</Link>
-      </Typography.Paragraph>
     </AuthLayout>
   )
 }

@@ -5,7 +5,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, setCurrentSpace, setSpaceGoneHandler, setUnauthorizedHandler } from '@/api/client'
 import { getMe, logout as logoutApi, updateMe } from '@/api/endpoints'
 import { qk } from '@/api/queryKeys'
-import HomePage from '@/pages/auth/HomePage'
+import HomePage from '@/pages/site/HomePage'
 import { SessionContext, type Session } from './SessionContext'
 import { permissionsOf } from './permissions'
 

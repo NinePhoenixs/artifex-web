@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Checkbox, Form, Input, Typography } from 'antd'
+import { Alert, Button, Checkbox, Form, Input } from 'antd'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
@@ -38,7 +38,10 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="登录稿谱" subtitle="用注册时的邮箱登录">
+    <AuthLayout
+      title="登录"
+      subtitle={<>还没有账号？<Link to={`/register${next.startsWith('/join/') ? `?invite=${next.slice(6)}` : ''}`}>注册</Link></>}
+    >
       {banner && <Alert type="error" message={banner} style={{ marginBottom: 20 }} />}
       <Form form={form} layout="vertical" requiredMark={false} onFinish={submit} initialValues={{ remember: true }}>
         <Form.Item label="邮箱" name="email" rules={emailRules}>
@@ -55,9 +58,6 @@ export default function LoginPage() {
         </div>
         <Button type="primary" htmlType="submit" size="large" block loading={loading}>登录</Button>
       </Form>
-      <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 24 }}>
-        还没有账号？<Link to={`/register${next.startsWith('/join/') ? `?invite=${next.slice(6)}` : ''}`}>注册</Link>
-      </Typography.Paragraph>
     </AuthLayout>
   )
 }

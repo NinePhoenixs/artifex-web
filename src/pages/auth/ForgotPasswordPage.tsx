@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthLayout title="重设密码" subtitle="验证码会发到注册邮箱，10 分钟内有效。">
+    <AuthLayout title="重设密码" subtitle={<>验证码会发到注册邮箱，10 分钟内有效。<Link to="/login">返回登录</Link></>}>
       {banner && <Alert type="warning" showIcon message={banner} style={{ marginBottom: 20 }} />}
       <Form form={form} layout="vertical" requiredMark={false} onFinish={submit}>
         <EmailWithCode form={form} purpose="reset_password" onError={onError} />
@@ -47,9 +47,6 @@ export default function ForgotPasswordPage() {
       </Form>
       <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 12, fontSize: 12 }}>
         重设后，其他设备上的登录会全部退出
-      </Typography.Paragraph>
-      <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
-        <Link to="/login">返回登录</Link>
       </Typography.Paragraph>
     </AuthLayout>
   )
