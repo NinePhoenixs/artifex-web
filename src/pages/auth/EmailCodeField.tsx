@@ -10,7 +10,7 @@ import { emailRules } from './formErrors'
  */
 export default function EmailWithCode({ form, purpose, onError }: {
   form: FormInstance
-  purpose: 'register' | 'reset_password'
+  purpose: 'login' | 'register' | 'reset_password'
   onError: (err: unknown) => void
 }) {
   const [left, setLeft] = useState(0)

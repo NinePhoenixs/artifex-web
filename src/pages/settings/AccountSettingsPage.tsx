@@ -9,7 +9,8 @@ export default function AccountSettingsPage() {
   const { me, refresh } = useSession()
   const { message } = App.useApp()
   const [nameForm] = Form.useForm<{ displayName: string }>()
-  const [pwdForm] = Form.useForm<{ oldPassword: string; newPassword: string }>()
+  const [pwdForm] = Form.useForm<{ oldPassword?: string; newPassword: string }>()
+  const hasPassword = me.user.hasPassword
 
   const saveName = useMutation({
     mutationFn: (displayName: string) => updateMe({ displayName }),
@@ -18,7 +19,11 @@ export default function AccountSettingsPage() {
   })
   const savePwd = useMutation({
     mutationFn: changePassword,
-    onSuccess: () => { message.success('密码已修改，其他设备上的登录已退出'); pwdForm.resetFields() },
+    onSuccess: async () => {
+      message.success(hasPassword ? '密码已修改，其他设备上的登录已退出' : '密码已设置，以后也可以用密码登录')
+      pwdForm.resetFields()
+      await refresh()
+    },
     onError: (e) => { if (!applyFieldError(pwdForm, e, { password: 'newPassword' })) message.error('修改失败，请重试') },
   })
 
@@ -39,15 +44,23 @@ export default function AccountSettingsPage() {
             <Button type="primary" htmlType="submit" loading={saveName.isPending}>保存</Button>
           </Form>
         </Card>
-        <Card title="修改密码">
+        <Card title={hasPassword ? '修改密码' : '设置密码'}>
+          {!hasPassword && (
+            <Typography.Paragraph type="secondary">
+              你现在用邮箱验证码登录。设个密码后，也可以用邮箱和密码登录。
+            </Typography.Paragraph>
+          )}
           <Form form={pwdForm} layout="vertical" requiredMark={false} onFinish={(v) => savePwd.mutate(v)} style={{ maxWidth: 320 }}>
-            <Form.Item name="oldPassword" label="旧密码" rules={[{ required: true, message: '请填写旧密码' }]}>
-              <Input.Password autoComplete="current-password" />
-            </Form.Item>
-            <Form.Item name="newPassword" label="新密码" rules={passwordRules} extra="至少 8 位，同时包含字母和数字。改完后其他设备上的登录会退出。">
+            {hasPassword && (
+              <Form.Item name="oldPassword" label="旧密码" rules={[{ required: true, message: '请填写旧密码' }]}>
+                <Input.Password autoComplete="current-password" />
+              </Form.Item>
+            )}
+            <Form.Item name="newPassword" label={hasPassword ? '新密码' : '密码'} rules={passwordRules}
+              extra={hasPassword ? '至少 8 位，同时包含字母和数字。改完后其他设备上的登录会退出。' : '至少 8 位，同时包含字母和数字'}>
               <Input.Password autoComplete="new-password" />
             </Form.Item>
-            <Button type="primary" htmlType="submit" loading={savePwd.isPending}>修改密码</Button>
+            <Button type="primary" htmlType="submit" loading={savePwd.isPending}>{hasPassword ? '修改密码' : '设置密码'}</Button>
           </Form>
         </Card>
       </Space>

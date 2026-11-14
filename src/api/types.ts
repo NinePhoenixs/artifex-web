@@ -714,6 +714,8 @@ export interface User {
   displayName: string
   /** 平台管理员：能改系统自带的 Agent、能力、模型，管邀请码 */
   isPlatformAdmin: boolean
+  /** 设过密码没有：验证码注册的可以不设，账号设置里显示「设置密码」 */
+  hasPassword: boolean
 }
 
 export interface Space {

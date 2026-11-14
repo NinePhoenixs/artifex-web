@@ -26,7 +26,7 @@ export default function SiteLayout({ open, children }: { open: boolean; children
           </nav>
           <div className="row">
             <Button type="text" onClick={() => nav('/login')}>登录</Button>
-            <Button type="primary" onClick={() => nav('/register')}>{open ? '免费注册' : '用邀请码注册'}</Button>
+            <Button type="primary" onClick={() => nav('/login')}>{open ? '免费开始' : '登录 / 注册'}</Button>
           </div>
         </div>
       </header>

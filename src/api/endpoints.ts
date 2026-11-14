@@ -201,9 +201,12 @@ export const promptAssist = (body: PromptAssistRequest) =>
 // ---------- 账号与空间 ----------
 
 export const getAuthOptions = () => api.get<AuthOptions>('/v1/auth/options')
-export const sendEmailCode = (email: string, purpose: 'register' | 'reset_password') =>
+export const sendEmailCode = (email: string, purpose: 'login' | 'register' | 'reset_password') =>
   api.post<void>('/v1/auth/email-codes', { email, purpose })
 export const register = (body: RegisterRequest) => api.post<Me>('/v1/auth/register', body)
+/** 邮箱验证码登录：没注册过的邮箱自动注册 */
+export const codeLogin = (body: { email: string; emailCode: string; inviteToken?: string; remember: boolean }) =>
+  api.post<Me>('/v1/auth/code-login', body)
 export const login = (body: { email: string; password: string; remember: boolean }) => api.post<Me>('/v1/auth/login', body)
 export const logout = () => api.post<void>('/v1/auth/logout')
 export const resetPassword = (body: { email: string; emailCode: string; newPassword: string }) =>
@@ -211,7 +214,7 @@ export const resetPassword = (body: { email: string; emailCode: string; newPassw
 
 export const getMe = () => api.get<Me>('/v1/me')
 export const updateMe = (body: { displayName?: string; lastSpaceId?: string }) => api.patch<Me>('/v1/me', body)
-export const changePassword = (body: { oldPassword: string; newPassword: string }) => api.put<void>('/v1/me/password', body)
+export const changePassword = (body: { oldPassword?: string; newPassword: string }) => api.put<void>('/v1/me/password', body)
 
 export const createSpace = (name: string) => api.post<Space>('/v1/spaces', { name })
 export const renameSpace = (spaceId: string, name: string) => api.patch<Space>(`/v1/spaces/${spaceId}`, { name })

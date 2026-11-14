@@ -100,10 +100,10 @@ export function CtaBand({ open }: { open: boolean }) {
   return (
     <section className="ws-cta ws-dark" data-reveal>
       <h2>先试产一篇看看</h2>
-      <p className="dim">{open ? '注册后建好第一份配方，当场就能试产。' : '现在凭邀请码注册。被同事邀请的，直接点邀请链接即可。'}</p>
+      <p className="dim">用邮箱收个验证码就能开始，建好第一份配方当场试产。</p>
       <div className="row">
-        <Button type="primary" size="large" onClick={() => nav('/register')}>{open ? '免费注册' : '用邀请码注册'}</Button>
-        <Button className="ws-ghost" size="large" onClick={() => nav('/login')}>登录</Button>
+        <Button type="primary" size="large" onClick={() => nav('/login')}>{open ? '免费开始' : '登录 / 注册'}</Button>
+        <Button className="ws-ghost" size="large" href="#how">看它怎么工作</Button>
       </div>
     </section>
   )

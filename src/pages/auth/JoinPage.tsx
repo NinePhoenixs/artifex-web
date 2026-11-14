@@ -61,13 +61,10 @@ export default function JoinPage() {
         </Space>
       ) : (
         <Space orientation="vertical" style={{ width: '100%' }} size={12}>
-          <Button type="primary" size="large" block onClick={() => navigate(`/register?invite=${encodeURIComponent(token)}`)}>
-            注册并加入
+          <Button type="primary" size="large" block onClick={() => navigate(`/login?next=${encodeURIComponent(`/join/${token}`)}`)}>
+            用邮箱登录并加入
           </Button>
-          <Button size="large" block onClick={() => navigate(`/login?next=${encodeURIComponent(`/join/${token}`)}`)}>
-            已有账号，登录后加入
-          </Button>
-          <Typography.Text type="secondary">没有稿谱账号的人，点开后注册即可加入，不需要邀请码。</Typography.Text>
+          <Typography.Text type="secondary">没有稿谱账号也没关系，用邮箱收个验证码就能加入。</Typography.Text>
         </Space>
       )}
     </AuthLayout>
