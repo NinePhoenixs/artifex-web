@@ -917,3 +917,25 @@ export interface PlatformSettings {
   trialPieces: number
   contactText: string
 }
+
+// ---------- 登录设备与登录记录 ----------
+
+export interface LoginSession {
+  sessionId: string
+  ip: string
+  userAgent: string
+  /** 勾了 30 天内自动登录 */
+  remember: boolean
+  createdAt: string
+  lastSeenAt: string
+  expiresAt: string
+  /** 就是现在这个浏览器 */
+  current: boolean
+}
+
+export interface LoginLog {
+  result: 'ok' | 'bad_password' | 'locked' | 'disabled' | 'no_account'
+  ip: string
+  userAgent: string
+  createdAt: string
+}

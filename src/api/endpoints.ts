@@ -54,6 +54,8 @@ import type {
   PlanCatalog,
   PlatformSettings,
   Quota,
+  LoginLog,
+  LoginSession,
 } from './types'
 
 // ---------- 元数据 ----------
@@ -290,3 +292,10 @@ export const updatePlatformSettings = (body: Partial<PlatformSettings> & { reaso
   api.patch<PlatformSettings>('/v1/admin/settings', body)
 export const listAuditLogs = (q: PageQuery & { q?: string } = {}) =>
   api.get<Page<AuditLog>>(`/v1/admin/audit-logs${qs({ ...q })}`)
+
+// ---------- 登录设备与登录记录 ----------
+
+export const listMySessions = () => api.get<{ items: LoginSession[] }>('/v1/me/sessions')
+export const endMySession = (sessionId: string) => api.del<void>(`/v1/me/sessions/${encodeURIComponent(sessionId)}`)
+export const endOtherSessions = () => api.post<void>('/v1/me/sessions/end-others')
+export const listMyLoginLogs = () => api.get<{ items: LoginLog[] }>('/v1/me/login-logs')

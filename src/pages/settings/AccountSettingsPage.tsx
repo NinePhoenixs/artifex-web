@@ -1,10 +1,15 @@
-import { App, Button, Card, Form, Input, Space, Typography } from 'antd'
-import { useMutation } from '@tanstack/react-query'
-import { changePassword, updateMe } from '@/api/endpoints'
+import { App, Button, Card, Form, Input, Popconfirm, Space, Table, Tag, Typography } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { changePassword, endMySession, endOtherSessions, listMyLoginLogs, listMySessions, updateMe } from '@/api/endpoints'
+import { qk } from '@/api/queryKeys'
+import type { LoginLog, LoginSession } from '@/api/types'
+import { useApiError } from '@/hooks/useApiError'
+import { formatDateTime, formatRelativeTime } from '@/utils/time'
+import { deviceName } from '@/utils/userAgent'
 import { useSession } from '@/session/SessionContext'
 import { applyFieldError, passwordRules } from '@/pages/auth/formErrors'
 
-/** 账号设置：改称呼、改密码。跟着人走，不分空间。 */
+/** 账号设置：改称呼、改密码、正在登录的设备、登录记录。跟着人走，不分空间。 */
 export default function AccountSettingsPage() {
   const { me, refresh } = useSession()
   const { message } = App.useApp()
@@ -63,7 +68,87 @@ export default function AccountSettingsPage() {
             <Button type="primary" htmlType="submit" loading={savePwd.isPending}>{hasPassword ? '修改密码' : '设置密码'}</Button>
           </Form>
         </Card>
+        <SessionsCard />
+        <LoginLogsCard />
       </Space>
     </div>
+  )
+}
+
+/** 正在登录的设备：当前这个排第一；可以逐个退出，或一次退出其他所有设备。 */
+function SessionsCard() {
+  const { message } = App.useApp()
+  const { logout } = useSession()
+  const onError = useApiError()
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: qk.mySessions(), queryFn: listMySessions })
+  const reload = () => qc.invalidateQueries({ queryKey: qk.mySessions() })
+  const endOne = useMutation({
+    mutationFn: endMySession,
+    onSuccess: () => { message.success('已退出'); void reload() },
+    onError: (e) => onError(e, { onNotFound: () => void reload() }),
+  })
+  const endOthers = useMutation({
+    mutationFn: endOtherSessions,
+    onSuccess: () => { message.success('其他设备上的登录已退出'); void reload() },
+    onError: (e) => onError(e),
+  })
+  const items = data?.items ?? []
+  return (
+    <Card title="正在登录的设备" styles={{ body: { padding: 0 } }}
+      extra={items.length > 1 && (
+        <Popconfirm title="退出其他所有设备？" description="除了现在这个浏览器，其他地方都要重新登录。" okText="全部退出" onConfirm={() => endOthers.mutate()}>
+          <Button type="link" loading={endOthers.isPending}>退出其他所有设备</Button>
+        </Popconfirm>
+      )}>
+      <Table<LoginSession> rowKey="sessionId" dataSource={items} loading={isLoading} pagination={false} showHeader={false}
+        columns={[
+          {
+            key: 'device',
+            render: (_, s) => (
+              <>
+                <Typography.Text strong>{deviceName(s.userAgent)}</Typography.Text>
+                {s.current && <Tag color="blue" style={{ marginInlineStart: 8 }}>当前</Tag>}
+                <br />
+                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                  {s.ip || '未知 IP'} · {formatDateTime(s.createdAt)} 登录{s.remember ? ' · 30 天内自动登录' : ''}
+                </Typography.Text>
+              </>
+            ),
+          },
+          { key: 'seen', width: 150, render: (_, s) => <Typography.Text type="secondary">{s.current ? '正在使用' : `${formatRelativeTime(s.lastSeenAt)} 用过`}</Typography.Text> },
+          {
+            key: 'ops', width: 90, align: 'right',
+            render: (_, s) => (s.current
+              ? <Button type="link" onClick={() => void logout()}>退出</Button>
+              : <Button type="link" danger loading={endOne.isPending && endOne.variables === s.sessionId} onClick={() => endOne.mutate(s.sessionId)}>退出</Button>),
+          },
+        ]} />
+    </Card>
+  )
+}
+
+const RESULT: Record<LoginLog['result'], { text: string; color?: string }> = {
+  ok: { text: '成功', color: 'green' },
+  bad_password: { text: '密码不对', color: 'orange' },
+  locked: { text: '锁定中', color: 'red' },
+  disabled: { text: '账号已停用', color: 'red' },
+  no_account: { text: '邮箱未注册' },
+}
+
+/** 登录记录：最近 30 天，成功和失败都有。看到不认识的，先改密码、退出其他设备。 */
+function LoginLogsCard() {
+  const { data, isLoading } = useQuery({ queryKey: qk.myLoginLogs(), queryFn: listMyLoginLogs })
+  return (
+    <Card title="登录记录" extra={<Typography.Text type="secondary">最近 30 天</Typography.Text>} styles={{ body: { padding: 0 } }}>
+      <Table<LoginLog> rowKey={(l) => `${l.createdAt}-${l.ip}`} dataSource={data?.items ?? []} loading={isLoading}
+        pagination={{ pageSize: 10, hideOnSinglePage: true, size: 'small' }} size="small"
+        columns={[
+          { title: '时间', dataIndex: 'createdAt', width: 170, render: (d: string) => formatDateTime(d) },
+          { title: '设备', dataIndex: 'userAgent', render: (ua: string) => deviceName(ua) },
+          { title: 'IP', dataIndex: 'ip', width: 140 },
+          { title: '结果', dataIndex: 'result', width: 100, render: (r: LoginLog['result']) => <Tag color={RESULT[r]?.color}>{RESULT[r]?.text ?? r}</Tag> },
+        ]} />
+    </Card>
   )
 }

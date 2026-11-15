@@ -30,6 +30,8 @@ export const qk = {
   quota: (spaceId: string) => ['quota', spaceId] as const,
   ledger: (spaceId: string) => ['ledger', spaceId] as const,
   plans: () => ['plans'] as const,
+  mySessions: () => ['my-sessions'] as const,
+  myLoginLogs: () => ['my-login-logs'] as const,
   /** 管理后台：写操作后整组失效 */
   admin: (...rest: (string | object)[]) => ['admin', ...rest] as const,
 }
