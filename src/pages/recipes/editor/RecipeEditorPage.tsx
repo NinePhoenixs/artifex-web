@@ -20,6 +20,8 @@ import { type SectionKey, formFieldOf, sectionOfField } from './fieldVisibility'
 import { ratioAfterLayoutChange, toFormValues, toPayload } from './formMapping'
 import { useEnums } from '@/hooks/useEnums'
 import { brand } from '@/theme'
+import { useSession } from '@/session/SessionContext'
+import { ROLE_LABEL } from '@/session/permissions'
 
 /** 左侧分类：各步是主角，每步 = 提示词 + 带哪些能力 + 这一步自己的设置；配图可关。 */
 const SECTIONS: { key: SectionKey; label: string; group?: string }[] = [
@@ -41,6 +43,7 @@ const SECTIONS: { key: SectionKey; label: string; group?: string }[] = [
 export default function RecipeEditorPage() {
   const { appId = '', recipeId = '' } = useParams()
   const navigate = useNavigate()
+  const { can, space } = useSession()
   const qc = useQueryClient()
   const { message, modal } = App.useApp()
   const handleError = useApiError()
@@ -221,7 +224,8 @@ export default function RecipeEditorPage() {
         <Tag variant="outlined" style={{ cursor: 'pointer' }} onClick={() => setSection('basic')}>
           {label('layout', layout)}
         </Tag>
-        <Space style={{ marginLeft: 'auto' }}>
+        {!can.edit && <Tag variant="filled">只读</Tag>}
+        <Space style={{ marginLeft: 'auto', display: can.edit ? undefined : 'none' }}>
           <Button loading={save.isPending} onClick={() => submit('save')} disabled={pending}>
             保存
           </Button>
@@ -235,6 +239,15 @@ export default function RecipeEditorPage() {
           </Button>
         </Space>
       </div>
+
+      {!can.edit && (
+        <Alert
+          type="info"
+          showIcon
+          message={`你在这个空间是「${ROLE_LABEL[space.role]}」，可以用这份配方生产，不能修改。需要改动请联系空间管理员。`}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {readyHint && (
         <Alert
@@ -286,6 +299,7 @@ export default function RecipeEditorPage() {
         <Form
           form={form}
           layout="vertical"
+          disabled={!can.edit}
           requiredMark
           scrollToFirstError
           onValuesChange={(changed: { layout?: Layout }) => {

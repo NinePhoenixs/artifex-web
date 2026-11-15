@@ -34,6 +34,28 @@ import type {
   PipelineStage,
   ProviderInput,
   StageName,
+  AuthOptions,
+  CreatedInvite,
+  InviteCode,
+  InviteInfo,
+  Me,
+  MemberList,
+  Member,
+  RegisterRequest,
+  Role,
+  Space,
+  AdminAccount,
+  AdminOverview,
+  AdminSpace,
+  AuditLog,
+  LedgerItem,
+  Page,
+  Plan,
+  PlanCatalog,
+  PlatformSettings,
+  Quota,
+  LoginLog,
+  LoginSession,
 } from './types'
 
 // ---------- 元数据 ----------
@@ -187,3 +209,93 @@ export const skillExportUrl = (id: string) => apiUrl(`/v1/capabilities/${encodeU
 /** 提示词助手：AI 生成 / 优化 / 检查。只给建议，不落库；免费模型可能要 1~2 分钟 */
 export const promptAssist = (body: PromptAssistRequest) =>
   api.post<PromptAssistResponse>('/v1/prompt-assist', body)
+
+// ---------- 账号与空间 ----------
+
+export const getAuthOptions = () => api.get<AuthOptions>('/v1/auth/options')
+export const sendEmailCode = (email: string, purpose: 'login' | 'register' | 'reset_password') =>
+  api.post<void>('/v1/auth/email-codes', { email, purpose })
+export const register = (body: RegisterRequest) => api.post<Me>('/v1/auth/register', body)
+/** 邮箱验证码登录：没注册过的邮箱自动注册 */
+export const codeLogin = (body: { email: string; emailCode: string; inviteToken?: string; remember: boolean }) =>
+  api.post<Me>('/v1/auth/code-login', body)
+export const login = (body: { email: string; password: string; remember: boolean }) => api.post<Me>('/v1/auth/login', body)
+export const logout = () => api.post<void>('/v1/auth/logout')
+export const resetPassword = (body: { email: string; emailCode: string; newPassword: string }) =>
+  api.post<Me>('/v1/auth/password-reset', body)
+
+export const getMe = () => api.get<Me>('/v1/me')
+export const updateMe = (body: { displayName?: string; lastSpaceId?: string }) => api.patch<Me>('/v1/me', body)
+export const changePassword = (body: { oldPassword?: string; newPassword: string }) => api.put<void>('/v1/me/password', body)
+
+export const createSpace = (name: string) => api.post<Space>('/v1/spaces', { name })
+export const renameSpace = (spaceId: string, name: string) => api.patch<Space>(`/v1/spaces/${spaceId}`, { name })
+export const listMembers = (spaceId: string) => api.get<MemberList>(`/v1/spaces/${spaceId}/members`)
+export const changeRole = (spaceId: string, userId: string, role: Role) =>
+  api.patch<Member>(`/v1/spaces/${spaceId}/members/${userId}`, { role })
+export const removeMember = (spaceId: string, userId: string) => api.del<void>(`/v1/spaces/${spaceId}/members/${userId}`)
+export const transferOwnership = (spaceId: string, userId: string) =>
+  api.post<MemberList>(`/v1/spaces/${spaceId}/transfer`, { userId })
+export const createInvite = (spaceId: string, role: Role) => api.post<CreatedInvite>(`/v1/spaces/${spaceId}/invites`, { role })
+export const revokeInvite = (spaceId: string, inviteId: string) => api.del<void>(`/v1/spaces/${spaceId}/invites/${inviteId}`)
+export const getInvite = (token: string) => api.get<InviteInfo>(`/v1/invites/${encodeURIComponent(token)}`)
+export const acceptInvite = (token: string) => api.post<Me>(`/v1/invites/${encodeURIComponent(token)}/accept`)
+
+export const listInviteCodes = () => api.get<{ items: InviteCode[] }>('/v1/admin/invite-codes')
+export const createInviteCode = (body: { remark: string; maxUses: number; expiresAt?: string }) =>
+  api.post<InviteCode>('/v1/admin/invite-codes', body)
+export const disableInviteCode = (code: string) =>
+  api.patch<InviteCode>(`/v1/admin/invite-codes/${encodeURIComponent(code)}`, { status: 'disabled' })
+
+/** 把系统自带的 Agent / 能力复制到当前空间，副本可以改 */
+export const copyAgent = (agentId: string) => api.post<Agent>(`/v1/agents/${agentId}/copy`)
+export const copyCapability = (id: string) => api.post<Capability>(`/v1/capabilities/${encodeURIComponent(id)}/copy`)
+
+// ---------- 套餐与额度 ----------
+
+/** 把查询条件拼成 ?a=1&b=2，空值不带 */
+function qs(q: Record<string, string | number | undefined>) {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') p.set(k, String(v))
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+export interface PageQuery { cursor?: string; limit?: number }
+
+export const getSpaceQuota = (spaceId: string) => api.get<Quota>(`/v1/spaces/${spaceId}/quota`)
+export const listSpaceLedger = (spaceId: string, q: PageQuery & { from?: string; to?: string } = {}) =>
+  api.get<Page<LedgerItem>>(`/v1/spaces/${spaceId}/quota/ledger${qs({ ...q })}`)
+export const getPlanCatalog = () => api.get<PlanCatalog>('/v1/plans')
+
+// ---------- 管理后台（平台管理员） ----------
+
+export const getAdminOverview = () => api.get<AdminOverview>('/v1/admin/overview')
+export const listAdminAccounts = (q: PageQuery & { q?: string } = {}) =>
+  api.get<Page<AdminAccount>>(`/v1/admin/accounts${qs({ ...q })}`)
+export const setAccountStatus = (userId: string, body: { status: 'active' | 'disabled'; reason: string }) =>
+  api.patch<{ userId: string; status: string }>(`/v1/admin/accounts/${userId}`, body)
+export const listAdminSpaces = (q: PageQuery & { q?: string; plan?: string; expiringDays?: number } = {}) =>
+  api.get<Page<AdminSpace>>(`/v1/admin/spaces${qs({ ...q })}`)
+export const getAdminSpaceQuota = (spaceId: string) => api.get<Quota>(`/v1/admin/spaces/${spaceId}/quota`)
+export const activatePlan = (spaceId: string, body: { planCode: string; expiresAt?: string; reason: string }) =>
+  api.post<Quota>(`/v1/admin/spaces/${spaceId}/plan`, body)
+export const grantBonus = (spaceId: string, body: { pieces: number; reason: string }) =>
+  api.post<Quota>(`/v1/admin/spaces/${spaceId}/bonus`, body)
+export const listAdminSpaceLedger = (spaceId: string, q: PageQuery = {}) =>
+  api.get<Page<LedgerItem>>(`/v1/admin/spaces/${spaceId}/ledger${qs({ ...q })}`)
+export const listAdminPlans = () => api.get<{ items: Plan[] }>('/v1/admin/plans')
+export const updatePlan = (code: string, body: { monthlyPieces?: number; memberLimit?: number; reason: string }) =>
+  api.patch<Plan>(`/v1/admin/plans/${code}`, body)
+export const getPlatformSettings = () => api.get<PlatformSettings>('/v1/admin/settings')
+export const updatePlatformSettings = (body: Partial<PlatformSettings> & { reason: string }) =>
+  api.patch<PlatformSettings>('/v1/admin/settings', body)
+export const listAuditLogs = (q: PageQuery & { q?: string } = {}) =>
+  api.get<Page<AuditLog>>(`/v1/admin/audit-logs${qs({ ...q })}`)
+
+// ---------- 登录设备与登录记录 ----------
+
+export const listMySessions = () => api.get<{ items: LoginSession[] }>('/v1/me/sessions')
+export const endMySession = (sessionId: string) => api.del<void>(`/v1/me/sessions/${encodeURIComponent(sessionId)}`)
+export const endOtherSessions = () => api.post<void>('/v1/me/sessions/end-others')
+export const listMyLoginLogs = () => api.get<{ items: LoginLog[] }>('/v1/me/login-logs')

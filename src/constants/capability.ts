@@ -23,8 +23,8 @@ const CAP_STAGES: StageName[] = ['retrieval', 'generation', 'review']
 export const STAGES: { value: StageName; label: string }[] = CAP_STAGES.map((s) => ({ value: s, label: STAGE_LABEL[s] }))
 
 export const ORIGIN_LABEL: Record<CapabilityOrigin, string> = {
-  platform: '平台',
-  enterprise: '我们登记',
+  platform: '系统自带',
+  enterprise: '本空间',
 }
 
 /** 状态：文案 + antd Tag 颜色。连接异常只会出现在 MCP 工具上，由系统设置。 */

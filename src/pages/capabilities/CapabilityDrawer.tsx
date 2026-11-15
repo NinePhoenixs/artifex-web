@@ -3,7 +3,7 @@ import { DownloadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icon
 import { App, Button, Descriptions, Drawer, Form, Skeleton, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { getCapability, refreshToolActions, skillExportUrl, updateCapability } from '@/api/endpoints'
+import { copyCapability, getCapability, refreshToolActions, skillExportUrl, updateCapability } from '@/api/endpoints'
 import type { Capability } from '@/api/types'
 import MarkdownView from '@/components/MarkdownView'
 import { qk } from '@/api/queryKeys'
@@ -14,6 +14,7 @@ import { ActionList, toFormName } from './CapabilityFormModal'
 import McpConnectFields from './McpConnectFields'
 import { AUTH_LABEL, fromToolSpec, msToSec, toToolPatch, type McpFormValues } from './mcpForm'
 import SkillPackage from './SkillPackage'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * 能力详情：技能看正文与版本，工具看接法与发现到的动作（可重新发现）。
@@ -33,6 +34,16 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
     onError: (e) => handleError(e),
   })
   const [editing, setEditing] = useState(false)
+  const { can, isPlatformAdmin } = useSession()
+  const copy = useMutation({
+    mutationFn: copyCapability,
+    onSuccess: () => {
+      message.success('已复制到本空间，可以开始修改')
+      qc.invalidateQueries({ queryKey: ['capabilities'] })
+      onClose()
+    },
+    onError: (e) => handleError(e),
+  })
   const { data: c, isLoading } = useQuery({
     queryKey: qk.capability(capabilityId ?? ''),
     queryFn: () => getCapability(capabilityId!),
@@ -40,7 +51,10 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
   })
 
   return (
-    <Drawer open={Boolean(capabilityId)} onClose={() => { setEditing(false); onClose() }} size={560} title={c?.name ?? '能力详情'} destroyOnHidden>
+    <Drawer open={Boolean(capabilityId)} onClose={() => { setEditing(false); onClose() }} size={560} title={c?.name ?? '能力详情'} destroyOnHidden
+      extra={c && c.origin === 'platform' && !isPlatformAdmin && can.edit && (
+        <Button loading={copy.isPending} onClick={() => copy.mutate(c.capabilityId)}>复制到本空间</Button>
+      )}>
       {isLoading || !c ? (
         <Skeleton active />
       ) : (
@@ -85,7 +99,7 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
             <>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                 <Typography.Title level={5} style={{ margin: 0 }}>接法</Typography.Title>
-                {c.tool.provider === 'mcp' && c.origin === 'enterprise' && !editing && (
+                {c.tool.provider === 'mcp' && c.origin === 'enterprise' && can.edit && !editing && (
                   <Button size="small" icon={<EditOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEditing(true)}>
                     修改接法
                   </Button>
@@ -136,6 +150,7 @@ export default function CapabilityDrawer({ capabilityId, onClose }: { capability
                     <Button
                       size="small"
                       icon={<ReloadOutlined />}
+                      hidden={!can.edit || (c.origin === 'platform' && !isPlatformAdmin)}
                       loading={refresh.isPending}
                       style={{ marginLeft: 'auto' }}
                       onClick={() => refresh.mutate(c.capabilityId)}

@@ -8,15 +8,18 @@ import { qk } from '@/api/queryKeys'
 import type { JobListItem } from '@/api/types'
 import { JobDrawer } from '@/components/JobView'
 import { DONE, JOB_STATUS } from '@/components/jobStatus'
+import QuotaBanner from '@/components/billing/QuotaBanner'
 import AppFormModal from '@/pages/apps/AppFormModal'
 import { brand } from '@/theme'
 import { formatRelativeTime } from '@/utils/time'
+import { useSession } from '@/session/SessionContext'
 
 /**
  * 工作台：进来先看今天产了多少、正在产什么、最近产了什么，再从应用进去改配方。
  * 「等你处理」依赖待复核，后端还没有，先不放。
  */
 export default function WorkbenchPage() {
+  const { can } = useSession()
   const navigate = useNavigate()
   const [newApp, setNewApp] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
@@ -38,6 +41,7 @@ export default function WorkbenchPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
+      <QuotaBanner />
       <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20 }}>
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>{greeting()}</Typography.Title>
@@ -50,9 +54,11 @@ export default function WorkbenchPage() {
             。
           </Typography.Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setNewApp(true)}>
-          新建应用
-        </Button>
+        {can.edit && (
+          <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setNewApp(true)}>
+            新建应用
+          </Button>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>

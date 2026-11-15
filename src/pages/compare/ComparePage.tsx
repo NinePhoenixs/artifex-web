@@ -9,6 +9,7 @@ import { DONE } from '@/components/jobStatus'
 import { UNTITLED, jobArticle } from '@/components/jobArtifacts'
 import MarkdownView from '@/components/MarkdownView'
 import { JOB_STEP_LABEL } from '@/constants/stage'
+import { useQuotaExceeded } from '@/components/billing/useQuotaExceeded'
 import { useApiError } from '@/hooks/useApiError'
 import { useJobWatch } from '@/hooks/useJobWatch'
 import { brand } from '@/theme'
@@ -33,6 +34,7 @@ export default function ComparePage() {
   const { message } = App.useApp()
   const qc = useQueryClient()
   const handleError = useApiError()
+  const quotaExceeded = useQuotaExceeded()
   const { data: list, isLoading } = useQuery({ queryKey: qk.recipes(appId), queryFn: () => listRecipes(appId) })
   const ready = (list?.items ?? []).filter((r) => r.status === 'ready').sort((a, b) => a.name.localeCompare(b.name, 'zh'))
 
@@ -59,9 +61,10 @@ export default function ComparePage() {
     onSuccess: (r) => {
       setRun(r)
       qc.invalidateQueries({ queryKey: ['jobs'] })
+      qc.invalidateQueries({ queryKey: ['quota'] })
       message.success('已开始，这一组会出现在「历史对比」里')
     },
-    onError: (e) => handleError(e),
+    onError: (e) => { if (!quotaExceeded(e)) handleError(e) },
   })
 
   if (isLoading) return <Skeleton active />

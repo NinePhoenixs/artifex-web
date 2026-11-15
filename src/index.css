@@ -43,3 +43,7 @@ body {
 .prompt-mention.tool { --m-bg: #e8f1fb; --m-tx: #1d5aa6; }
 .prompt-mention.skill { --m-bg: #e7f6ef; --m-tx: #0f7a52; }
 .prompt-mention.missing { --m-bg: #fdf0e9; --m-tx: #b4501f; }
+
+
+.num { font-variant-numeric: tabular-nums; }
+
