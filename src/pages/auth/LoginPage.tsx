@@ -74,7 +74,8 @@ export default function LoginPage() {
             <Form.Item label="邮箱" name="email" rules={emailRules}>
               <Input size="large" autoComplete="email" />
             </Form.Item>
-            <Form.Item label="密码" name="password" rules={[{ required: true, message: '请填写密码' }]}>
+            <Form.Item label="密码" name="password" rules={[{ required: true, message: '请填写密码' }]}
+              extra="没设过密码？先用验证码登录，再到右上角「账号设置」里设置。">
               <Input.Password size="large" autoComplete="current-password" />
             </Form.Item>
           </>
