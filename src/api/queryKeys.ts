@@ -27,4 +27,9 @@ export const qk = {
   members: (spaceId: string) => ['members', spaceId] as const,
   inviteCodes: () => ['invite-codes'] as const,
   authOptions: () => ['auth-options'] as const,
+  quota: (spaceId: string) => ['quota', spaceId] as const,
+  ledger: (spaceId: string) => ['ledger', spaceId] as const,
+  plans: () => ['plans'] as const,
+  /** 管理后台：写操作后整组失效 */
+  admin: (...rest: (string | object)[]) => ['admin', ...rest] as const,
 }

@@ -24,7 +24,7 @@ const VALID_DAYS = [
   { value: 0, label: '不过期' },
 ]
 
-/** 平台邀请码：没开放注册时，凭它注册。只有平台管理员能进。 */
+/** 平台邀请码：没开放注册时，凭它注册。在平台管理里，只有平台管理员能进。 */
 export default function InviteCodesPage() {
   const { isPlatformAdmin } = useSession()
   const { message, modal } = App.useApp()
@@ -74,12 +74,9 @@ export default function InviteCodesPage() {
   ]
 
   return (
-    <div style={{ padding: 24, maxWidth: 1080, margin: '0 auto', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <Typography.Title level={3} style={{ margin: 0 }}>邀请码</Typography.Title>
-          <Typography.Text type="secondary">拿到邀请码或团队邀请链接的人才能注册。</Typography.Text>
-        </div>
+    <div style={{ paddingBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+        <Typography.Text type="secondary">注册方式为「只能凭邀请」时，拿到邀请码或团队邀请链接的人才能注册。</Typography.Text>
         <Button type="primary" style={{ marginInlineStart: 'auto' }} onClick={() => setCreating(true)}>生成邀请码</Button>
       </div>
       <Card styles={{ body: { padding: 0 } }}>

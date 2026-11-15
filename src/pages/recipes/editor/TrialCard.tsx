@@ -10,6 +10,7 @@ import { UNTITLED, imageUrl, lastFailedStep } from '@/components/jobArtifacts'
 import CrewProgress from '@/components/crew/CrewProgress'
 import { headImage, noteText, previewContent } from '@/components/preview/content'
 import { useJobWatch } from '@/hooks/useJobWatch'
+import { useQuotaExceeded } from '@/components/billing/useQuotaExceeded'
 import { useApiError } from '@/hooks/useApiError'
 import { formatRelativeTime } from '@/utils/time'
 import { brand } from '@/theme'
@@ -29,6 +30,7 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
 }) {
   const qc = useQueryClient()
   const handleError = useApiError()
+  const quotaExceeded = useQuotaExceeded()
   const { message } = App.useApp()
   const [topic, setTopic] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
@@ -51,8 +53,9 @@ export default function TrialCard({ appId, recipeId, ready, variables = [] }: {
       setAsking(false)
       setTopic('')
       qc.invalidateQueries({ queryKey: ['jobs'] })
+      qc.invalidateQueries({ queryKey: ['quota'] })
     },
-    onError: (e) => handleError(e),
+    onError: (e) => { if (!quotaExceeded(e)) handleError(e) },
   })
 
   // 以正在轮询的任务状态为准：列表只在提交时刷新一次，它的状态会一直停在「产的时候」

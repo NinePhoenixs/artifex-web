@@ -796,3 +796,124 @@ export interface InviteCode {
   status: 'active' | 'disabled' | 'used_up' | 'expired'
   createdAt: string
 }
+
+// ---------- 套餐与额度 ----------
+
+export type PlanCode = 'free' | 'pro' | 'team' | 'internal' | (string & {})
+
+export interface Plan {
+  code: PlanCode
+  name: string
+  monthlyPieces: number
+  /** 0 表示不限 */
+  memberLimit: number
+  unlimited: boolean
+  public: boolean
+}
+
+export interface QuotaLeft {
+  total: number
+  trial: number
+  period: number
+  bonus: number
+}
+
+/** 空间的套餐与剩余篇数 */
+export interface Quota {
+  plan: { code: PlanCode; name: string; unlimited: boolean; expiresAt: string | null }
+  left: QuotaLeft
+  /** 本计费周期结束（到点重置为每月篇数）；免费版为空 */
+  periodEnd: string | null
+  periodPieces: number
+  memberLimit: number
+  usedThisPeriod: number
+  usedTotal: number
+}
+
+export type LedgerKind = 'consume' | 'refund' | 'activate' | 'reset' | 'bonus' | 'expire' | 'trial' | 'adjust'
+
+export interface LedgerItem {
+  id: number
+  kind: LedgerKind
+  delta: number
+  leftAfter: number
+  jobId: string
+  topic: string
+  planCode: string
+  remark: string
+  createdAt: string
+}
+
+export interface Page<T> {
+  items: T[]
+  /** 下一页游标；没有更多为空 */
+  nextCursor: string
+}
+
+export interface PlanCatalog {
+  plans: Plan[]
+  /** 「联系我们」：后台设置里填的文字，可能为空 */
+  contact: string
+  /** 新空间送的试用篇数 */
+  trialPieces: number
+}
+
+// ---------- 管理后台 ----------
+
+export interface AdminOverview {
+  accounts: number
+  spaces: number
+  paidSpaces: number
+  newAccountsToday: number
+  newAccountsMonth: number
+  piecesToday: number
+  piecesMonth: number
+  /** 本月平台提供的模型花费（元） */
+  platformCostMonth: number
+  /** 7 天内到期的付费空间 */
+  expiringSoon: number
+}
+
+export interface AdminAccount {
+  userId: string
+  email: string
+  displayName: string
+  status: 'active' | 'disabled'
+  isPlatformAdmin: boolean
+  createdAt: string
+  lastLoginAt: string | null
+  spaceCount: number
+}
+
+export interface AdminSpace {
+  spaceId: string
+  name: string
+  kind: 'personal' | 'team'
+  ownerEmail: string
+  ownerName: string
+  memberCount: number
+  planCode: PlanCode
+  planExpiresAt: string | null
+  left: QuotaLeft
+  piecesMonth: number
+  costMonth: number
+  createdAt: string
+}
+
+export interface AuditLog {
+  id: number
+  action: string
+  targetType: string
+  targetId: string
+  detail: Record<string, unknown> | null
+  ip: string
+  operatorName: string
+  reason: string
+  createdAt: string
+}
+
+export interface PlatformSettings {
+  registration: 'open' | 'invite_only'
+  trialPieces: number
+  contactText: string
+}

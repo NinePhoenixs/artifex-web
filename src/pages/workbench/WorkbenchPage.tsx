@@ -8,6 +8,7 @@ import { qk } from '@/api/queryKeys'
 import type { JobListItem } from '@/api/types'
 import { JobDrawer } from '@/components/JobView'
 import { DONE, JOB_STATUS } from '@/components/jobStatus'
+import QuotaBanner from '@/components/billing/QuotaBanner'
 import AppFormModal from '@/pages/apps/AppFormModal'
 import { brand } from '@/theme'
 import { formatRelativeTime } from '@/utils/time'
@@ -40,6 +41,7 @@ export default function WorkbenchPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
+      <QuotaBanner />
       <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20 }}>
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>{greeting()}</Typography.Title>

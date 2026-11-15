@@ -44,6 +44,16 @@ import type {
   RegisterRequest,
   Role,
   Space,
+  AdminAccount,
+  AdminOverview,
+  AdminSpace,
+  AuditLog,
+  LedgerItem,
+  Page,
+  Plan,
+  PlanCatalog,
+  PlatformSettings,
+  Quota,
 } from './types'
 
 // ---------- 元数据 ----------
@@ -238,3 +248,45 @@ export const disableInviteCode = (code: string) =>
 /** 把系统自带的 Agent / 能力复制到当前空间，副本可以改 */
 export const copyAgent = (agentId: string) => api.post<Agent>(`/v1/agents/${agentId}/copy`)
 export const copyCapability = (id: string) => api.post<Capability>(`/v1/capabilities/${encodeURIComponent(id)}/copy`)
+
+// ---------- 套餐与额度 ----------
+
+/** 把查询条件拼成 ?a=1&b=2，空值不带 */
+function qs(q: Record<string, string | number | undefined>) {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') p.set(k, String(v))
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+export interface PageQuery { cursor?: string; limit?: number }
+
+export const getSpaceQuota = (spaceId: string) => api.get<Quota>(`/v1/spaces/${spaceId}/quota`)
+export const listSpaceLedger = (spaceId: string, q: PageQuery & { from?: string; to?: string } = {}) =>
+  api.get<Page<LedgerItem>>(`/v1/spaces/${spaceId}/quota/ledger${qs({ ...q })}`)
+export const getPlanCatalog = () => api.get<PlanCatalog>('/v1/plans')
+
+// ---------- 管理后台（平台管理员） ----------
+
+export const getAdminOverview = () => api.get<AdminOverview>('/v1/admin/overview')
+export const listAdminAccounts = (q: PageQuery & { q?: string } = {}) =>
+  api.get<Page<AdminAccount>>(`/v1/admin/accounts${qs({ ...q })}`)
+export const setAccountStatus = (userId: string, body: { status: 'active' | 'disabled'; reason: string }) =>
+  api.patch<{ userId: string; status: string }>(`/v1/admin/accounts/${userId}`, body)
+export const listAdminSpaces = (q: PageQuery & { q?: string; plan?: string; expiringDays?: number } = {}) =>
+  api.get<Page<AdminSpace>>(`/v1/admin/spaces${qs({ ...q })}`)
+export const getAdminSpaceQuota = (spaceId: string) => api.get<Quota>(`/v1/admin/spaces/${spaceId}/quota`)
+export const activatePlan = (spaceId: string, body: { planCode: string; expiresAt?: string; reason: string }) =>
+  api.post<Quota>(`/v1/admin/spaces/${spaceId}/plan`, body)
+export const grantBonus = (spaceId: string, body: { pieces: number; reason: string }) =>
+  api.post<Quota>(`/v1/admin/spaces/${spaceId}/bonus`, body)
+export const listAdminSpaceLedger = (spaceId: string, q: PageQuery = {}) =>
+  api.get<Page<LedgerItem>>(`/v1/admin/spaces/${spaceId}/ledger${qs({ ...q })}`)
+export const listAdminPlans = () => api.get<{ items: Plan[] }>('/v1/admin/plans')
+export const updatePlan = (code: string, body: { monthlyPieces?: number; memberLimit?: number; reason: string }) =>
+  api.patch<Plan>(`/v1/admin/plans/${code}`, body)
+export const getPlatformSettings = () => api.get<PlatformSettings>('/v1/admin/settings')
+export const updatePlatformSettings = (body: Partial<PlatformSettings> & { reason: string }) =>
+  api.patch<PlatformSettings>('/v1/admin/settings', body)
+export const listAuditLogs = (q: PageQuery & { q?: string } = {}) =>
+  api.get<Page<AuditLog>>(`/v1/admin/audit-logs${qs({ ...q })}`)

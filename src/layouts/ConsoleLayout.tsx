@@ -46,7 +46,7 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
     title: '接入与管理',
     items: [
       { key: 'soon:developers', label: '开发者', icon: <ApiOutlined />, soon: true },
-      { key: 'soon:usage', label: '用量与账单', icon: <CreditCardOutlined />, soon: true },
+      { key: '/billing', label: '用量与账单', icon: <CreditCardOutlined /> },
       { key: '/settings', label: '团队与设置', icon: <SettingOutlined /> },
     ],
   },
@@ -144,7 +144,7 @@ function Crumbs({ path }: { path: string }) {
   if (top) items.push({ title: seg.length > 1 ? <Link to={top.key}>{top.label}</Link> : top.label })
   if (seg[0] === 'capabilities' && seg[1]) items.push({ title: seg[1] === 'agents' ? 'Agent' : '模型' })
   if (seg[0] === 'account') items.push({ title: '账号设置' })
-  if (seg[0] === 'admin') items.push({ title: '邀请码' })
+  if (seg[0] === 'admin') items.push({ title: '平台管理' })
   if (appId) {
     const tab = seg[2] === 'jobs' ? '生产记录' : '配方'
     items.push({ title: seg.length > 3 || seg[2] ? <Link to={`/apps/${appId}/recipes`}>{app?.name ?? '应用'}</Link> : app?.name ?? '应用' })
